@@ -28,15 +28,14 @@ class TableWandWidget extends WidgetType {
   toDOM(view: EditorView) {
     const wrap = document.createElement('div');
     wrap.className = `cm-table-wand-widget`;
-    wrap.style.cssText = 'display:block; text-align:right; margin-top:-20px; z-index:10; position:relative; height: 0px;';
+    wrap.style.cssText = 'display:block; margin-bottom: 6px; z-index:10; position:relative;';
     
     const btn = document.createElement('button');
     btn.innerHTML = '🪄 Edit Table';
     btn.style.cssText = `
       background: #bbf7d0; color: #166534; font-weight: 700; font-size: 11px;
       padding: 4px 8px; border: 1px solid #22c55e; border-radius: 4px;
-      cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-      transform: translateY(-100%);
+      cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     `;
     
     btn.onclick = (e) => {

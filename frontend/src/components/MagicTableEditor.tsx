@@ -140,7 +140,7 @@ export function MagicTableEditor({ initialSource, onSave, onCancel }: MagicTable
           </div>
         </div>
 
-        <div style={{ overflow: 'auto', flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: '#f8fafc' }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, minHeight: 0, border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: '#f8fafc' }}>
           <table style={{ borderCollapse: 'collapse', width: 'max-content' }}>
             <tbody>
               {rows.map((row, rIndex) => (

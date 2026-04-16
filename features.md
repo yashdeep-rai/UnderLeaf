@@ -15,13 +15,6 @@ Here's the full feature breakdown from the spec, ordered Phase 1.1 through the u
 **Phase 1.4 — Ghost Previews**
 - (MVP) Dual-mode preview (KaTeX + PDF.js): KaTeX for keystroke-speed inline math rendering; PDF.js for full-fidelity compiled output. Two layers, two purposes, zero redundancy.
 - (Novel) Inline KaTeX via CodeMirror decorations: AST identifies the specific math block under the cursor, KaTeX renders only that block inline above the line being edited. Feels like editing a live document, not source code.
-
-<!-- **Phase 1.5 — Error AI**
-- (Novel) Ollama log-physician panel: On compile:error, the raw TeX log is sent to a local Ollama instance on a separate goroutine. Response streams into a dedicated panel with one-click fix application. Fully offline, no API key required. Addresses the #1 reason students quit LaTeX.
-
-**Phase 1.6 — Data Binding**
-- (Novel) Live CSV / JSON watcher: fsnotify watches bound data files. On change, re-generates the linked LaTeX table and triggers a recompile. LaTeX becomes the view layer for your data. Explicitly called out in the spec as the feature that defines the product's identity. -->
-
 ---
 
 **Core Features (unphased — must ship as baseline)**

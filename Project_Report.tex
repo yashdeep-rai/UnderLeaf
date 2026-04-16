@@ -1,0 +1,125 @@
+\documentclass[11pt, a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tabularx}
+
+\title{\textbf{UnderLeaf Project Report} \\ \Large A Local-First, Zero-Friction \LaTeX\ IDE}
+\author{
+  Group Members: \\
+  Yashdeep (123CS0077) \\
+  Ayush Rewenshete (523CS0020) \\
+  Vishal Kumar (123AD0052) \\
+  Chaitanya Jambhulkar (123AD0045)
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Product Specification}
+UnderLeaf completely decouples the user from traditional massive \TeX\ installations by shipping a fully self-contained compiler stack and a modern interface explicitly designed for rapid iteration.
+
+\subsection*{Technology Stack \& Tools Utilized}
+\begin{description}
+    \item[App Framework (Wails v3):] Creates a native desktop binary cleanly paired with a web frontend, entirely bypassing the heavy memory overhead of Electron.
+    \item[\TeX\ Engine (Tectonic):] A single bundled Rust binary compiler that automatically fetches and caches missing scientific packages entirely on demand.
+    \item[Frontend (React + Vite):] A blazing-fast UI framework guaranteeing minimal runtime overhead and instantaneous reactivity for the interface.
+    \item[Editor Core (CodeMirror 6):] Selected for its modular architecture and advanced Decoration API, which is strictly required to inject Ghost Previews correctly over text.
+    \item[AST Parser (Go Participle):] Integrates natively with the Go backend to construct dynamic Abstract Syntax Trees directly from \LaTeX\ text streams.
+    \item[Math Preview (KaTeX):] Renders mathematical Ghost Previews at sub-millisecond speeds natively inline, without requiring a server round-trip.
+    \item[PDF Rendering (PDF.js):] A battle-tested PDF renderer explicitly driving the visual compilation targets on the live split-pane logic.
+\end{description}
+
+\subsection*{System Architecture \& Data Flow}
+The UnderLeaf live compilation architecture tightly runs a unified five-step cycle systematically driven by a debounced event loop:
+\begin{enumerate}
+    \item \textbf{File Change (500ms debounce):} The user pauses typing in the editor, and CodeMirror automatically triggers an update payload.
+    \item \textbf{Incremental Parse:} The Go backend seamlessly evaluates the file delta and updates the internal AST natively.
+    \item \textbf{Tectonic Call:} Wails fetches any missing packages required by the AST and safely invokes the local Tectonic engine.
+    \item \textbf{Signal Emission:} Wails formally emits a \texttt{compile:success} event across the IPC bridge to the frontend boundary.
+    \item \textbf{Interface Refresh:} The split-pane PDF.js viewer smoothly reloads from the new blob URL output buffer, while all interactive Ghost Previews organically update.
+\end{enumerate}
+
+\subsection*{Performance Targets}
+\begin{itemize}[noitemsep]
+    \item Guaranteed \textbf{$<100\text{ms}$} AST Preview Latency bounding editor input.
+    \item Contained within a \textbf{$<100\text{MB}$} standalone distribution binary (excluding local package caches).
+\end{itemize}
+
+\section{Usefulness of the Product}
+Writing complex scientific or mathematical papers is severely hindered by archaic \LaTeX\ workflows. The standard setup demands gigabytes of \texttt{TeX Live} installations, frustrating PATH adjustments, and fractured text editors. 
+
+UnderLeaf radically solves this. A researcher can open UnderLeaf on a fresh computer without any pre-requisite installations, type their code, and instantaneously see the compiled PDF. It absolutely eliminates setup barriers, permanently respects data privacy via strict offline local operation, and intuitively bridges the gap between raw code and visual feedback.
+
+\section{Availability of Similar Products in the Market}
+There are three primary alternatives serving the market: Overleaf, TeXstudio, and VS Code. UnderLeaf fundamentally outperforms them in zero-friction offline usability:
+
+\vspace{1em}
+\noindent
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\hline
+\textbf{Capability} & \textbf{TeXstudio} & \textbf{Overleaf} & \textbf{UnderLeaf} \\
+\hline
+\textbf{Setup}          & Manual TeX Live    & Web (No install)  & \textbf{Zero-config binary} \\
+\hline
+\textbf{Math Preview}   & Split-screen only  & Split-screen only & \textbf{Inline Ghost Previews} \\
+\hline
+\textbf{Image Handling} & Manual copy+code   & Upload+code       & \textbf{Drag-drop + auto-inject} \\
+\hline
+\textbf{Version History}& None               & Pro plan only     & \textbf{Always-on local shots} \\
+\hline
+\textbf{Offline Use}    & Full               & None              & \textbf{Full} \\
+\hline
+\end{tabularx}
+\vspace{1em}
+
+\section{What is Novel/New in Your Product}
+UnderLeaf pushes past conventional IDE paradigms with capabilities defined exclusively through our original interactive feature pipeline:
+
+\subsection*{Ghost Previews (Interactive Math)}
+UnderLeaf parses the document via an AST and renders complex math formulas directly above the source code using KaTeX. Place your cursor near the following Field Equation to watch it expand and collapse dynamically!
+
+$$ R_{\mu \nu} - \frac{1}{2} R g_{\mu \nu} + \Lambda g_{\mu \nu} = \frac{8 \pi G}{c^4} T_{\mu \nu} $$
+
+\subsection*{Magic Tables (Visual Spreadsheet Editor)}
+Click the \textbf{🪄 Edit Table} wand above the block below to launch our custom GUI spreadsheet, radically simplifying one of \LaTeX's most notoriously difficult tabular syntaxes!
+
+\vspace{1em}
+\begin{center}
+\begin{tabular}{|l|c|r|}
+\hline
+  Quarter    & Metric                   & Revenue ($\$$) \\
+\hline
+  Q1 2026    & Initial Launch           & 15,000         \\
+  Q2 2026    & Feature Update           & 22,500         \\
+\hline
+\end{tabular}
+\end{center}
+\vspace{1em}
+
+\subsection*{Workflow Tooling}
+\begin{itemize}[noitemsep]
+    \item \textbf{Local "Time Travel" Snapshots:} Automatic, granular document version control snapshotting the exact PDF and `.tex` source securely locally without ever touching Git. 
+    \item \textbf{Drag-and-Drop Assets:} Dropping an image securely shifts it to the local \texttt{/assets} folder and injects the \texttt{\textbackslash begin\{figure\}} code instantly.
+    \item \textbf{Command Palette \& LSP:} A massive productivity booster allowing users to hit Cmd+K to jump to sections, insert code snippets, and securely autocomplete \texttt{\textbackslash cite} metadata and targets autonomously.
+\end{itemize}
+
+\section{Individual Contribution of Each Member of the Group}
+The project architecture required intense, highly optimized execution across network interfaces, concurrent logic loops, UI elements, and parsers:
+
+\begin{description}
+    \item[Yashdeep (123CS0077) -- Native Systems \& OS Bridge:] Solely owned the architecture and deployment of the Wails backend framework. They managed the bidirectional IPC event bus seamlessly linking Go with React, successfully achieving the difficult latency targets by bounding the React states to Go without blocking concurrency loops.
+    \item[Ayush Rewenshete (523CS0020) -- Frontend \& Visual Tools:] Completely architected the React interface and the complex split-pane UI scaling. They developed the custom CodeMirror 6 plugins required to inject UI widgets natively into text streams, seamlessly binding the \textit{Magic Tables} WYSIWYG spreadsheet integration over LaTeX structural code.
+    \item[Vishal Kumar (123AD0052) -- Version Control \& Assets:] Engineered the heavily optimized filesystem logic driving the local \textit{Time Travel} storage arrays and frontend Timeline. They constructed highly redundant, optimized local storage snapshots to ensure 100\% state safety with zero Git dependencies, along with native Drag-and-Drop deployment tools.
+    \item[Chaitanya Jambhulkar (123AD0045) -- Parsers \& Base Compilers:] Managed the Zero-config Tectonic CLI integration loops and led the development of the Go Participle AST parsers driving Context-Aware LSP algorithms. They engineered the intricate tokenization engine tracking mathematical delimiters for \textit{Ghost Previews}, mitigating KaTeX flickering through localized debounced synchronization cycles.
+\end{description}
+
+\end{document}
