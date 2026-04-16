@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Underleaf | Professional LaTeX Editor</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --underleaf-green: #4f9c45;
+            --underleaf-green-hover: #458a3c;
+            --underleaf-bg: #f3f4f6;
+            --surface: #ffffff;
+            --border: #e5e7eb;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --header-dark: #1e293b;
+            --header-darker: #0f172a;
+            --editor-light: #ffffff;
+            --preview-bg: #e2e8f0;
+            --resizer-line: #cbd5e1;
+            --tooltip-bg: #0f172a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            background-color: var(--underleaf-bg);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- Tooltip System --- */
+        [data-tooltip] {
+            position: relative;
+            cursor: pointer;
+        }
+
+        [data-tooltip]::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: var(--tooltip-bg);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            font-weight: 500;
+            pointer-events: none;
+        }
+
+        [data-tooltip]:hover::before,
+        [data-tooltip]:active::before {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Sidebar Boundary Fix */
+        .file-actions [data-tooltip]::before {
+            bottom: auto;
+            top: 100%;
+            transform: translateX(-50%) translateY(5px);
+            left: 50%;
+        }
+
+        .file-actions [data-tooltip]:hover::before,
+        .file-actions [data-tooltip]:active::before {
+            transform: translateX(-50%) translateY(10px);
+        }
+
+        /* --- Navigation --- */
+        nav {
+            height: 60px;
+            background: var(--header-dark);
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid var(--header-darker);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 50;
+            flex-shrink: 0;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .logo {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .logo span.leaf {
+            color: #86efac;
+        }
+
+        .menu-bar {
+            display: flex;
+            gap: 18px;
+            margin-left: 10px;
+        }
+
+        .menu-item {
+            font-size: 14px;
+            font-weight: 500;
+            color: #cbd5e1;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .menu-item:hover {
+            color: #ffffff;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: var(--underleaf-green);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: var(--underleaf-green-hover);
+        }
+
+        .nav-btn-primary {
+            background: #3b82f6;
+            border: none;
+        }
+
+        .nav-btn-primary:hover {
+            background: #60a5fa;
+        }
+
+        /* --- Workspace --- */
+        .workspace {
+            display: flex;
+            flex-grow: 1;
+            height: calc(100vh - 90px);
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card {
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .resizer {
+            width: 8px;
+            cursor: col-resize;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .resizer::after {
+            content: "";
+            width: 2px;
+            height: 30px;
+            background: var(--resizer-line);
+            border-radius: 2px;
+        }
+
+        #sidebar {
+            width: 240px;
+            min-width: 180px;
+            position: relative;
+            z-index: 20;
+        }
+
+        #editor-panel {
+            flex-grow: 1;
+            min-width: 300px;
+            position: relative;
+            z-index: 1;
+            /* Resetting Editor to 1 to allow tooltips to float over */
+        }
+
+        #preview-panel {
+            width: 40%;
+            min-width: 250px;
+            position: relative;
+            z-index: 20;
+        }
+
+        /* --- Panel Headers --- */
+        .panel-header,
+        .sidebar-header {
+            height: 52px;
+            background: var(--header-dark);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-wrap: nowrap;
+            gap: 12px;
+            padding: 0 16px;
+            overflow: visible;
+        }
+
+        .panel-header {
+            color: #94a3b8;
+        }
+
+        .sidebar-header {
+            color: white;
+            padding: 0 15px;
+        }
+
+        .header-group {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 1;
+            flex-wrap: nowrap;
+            min-width: 0;
+            /* Changed to visible to allow tooltips on boundaries */
+            overflow: visible;
+        }
+
+        .divider {
+            width: 1px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0 6px;
+            flex-shrink: 0;
+        }
+
+        .tool-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 6px 8px;
+            cursor: pointer;
+            font-size: 13px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+            flex-shrink: 1;
+            white-space: nowrap;
+        }
+
+        .tool-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .sidebar-header-title {
+            font-size: 12px;
+            font-weight: 800;
+            opacity: 0.8;
+            letter-spacing: 0.5px;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .action-svg {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            stroke: #94a3b8;
+            fill: none;
+            stroke-width: 2;
+            transition: 0.2s;
+            display: block;
+        }
+
+        .action-svg:hover {
+            stroke: var(--underleaf-green);
+        }
+
+        .file-item {
+            padding: 10px 15px;
+            font-size: 14px;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-item.active {
+            background: #f0fdf4;
+            color: var(--underleaf-green);
+            font-weight: 600;
+        }
+
+        .view-toggle {
+            display: flex;
+            background: var(--header-darker);
+            padding: 3px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        .toggle-btn {
+            padding: 6px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #64748b;
+            transition: 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: var(--underleaf-green);
+            color: white;
+        }
+
+        /* --- Contents --- */
+        .editor-body {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        textarea {
+            flex-grow: 1;
+            background: white;
+            border: none;
+            padding: 20px;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            overflow-y: auto;
+        }
+
+        .pdf-content {
+            background: var(--preview-bg);
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .pdf-page {
+            background: white;
+            width: 100%;
+            max-width: 500px;
+            min-height: 700px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        .zoom-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .zoom-slider {
+            -webkit-appearance: none;
+            width: 80px;
+            height: 4px;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        .zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--underleaf-green);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        footer {
+            height: 30px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            font-size: 11px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            position: relative;
+            z-index: 50;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <div class="nav-left">
+            <div class="logo">underleaf <span class="leaf">🍃</span></div>
+            <div class="menu-bar">
+                <span class="menu-item" data-tooltip="Project Settings">File</span>
+                <span class="menu-item" data-tooltip="Add Content">Insert</span>
+                <span class="menu-item" data-tooltip="Interface Options">View</span>
+                <span class="menu-item" data-tooltip="Text Styles">Format</span>
+                <span class="menu-item" data-tooltip="Documentation">Help</span>
+            </div>
+        </div>
+        <div class="nav-right">
+            <button class="nav-btn" data-tooltip="Invite Collaborators">🔗 SHARE</button>
+            <button class="nav-btn" data-tooltip="Editor Preferences">⚙️ SETTINGS</button>
+            <button class="nav-btn nav-btn-primary" data-tooltip="Generate PDF (Ctrl+Enter)">COMPILE</button>
+        </div>
+    </nav>
+
+    <main class="workspace" id="container">
+        <aside class="card" id="sidebar">
+            <div class="sidebar-header">
+                <span class="sidebar-header-title">PROJECT</span>
+                <div class="file-actions">
+                    <div data-tooltip="New File">
+                        <svg class="action-svg" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="12" y1="18" x2="12" y2="12"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
+                    </div>
+                    <div data-tooltip="New Folder">
+                        <svg class="action-svg" viewBox="0 0 24 24">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
+                            </path>
+                            <line x1="12" y1="11" x2="12" y2="17"></line>
+                            <line x1="9" y1="14" x2="15" y2="14"></line>
+                        </svg>
+                    </div>
+                    <div data-tooltip="Upload Asset">
+                        <svg class="action-svg" viewBox="0 0 24 24">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="file-item active">📄 main.tex</div>
+            <div class="file-item">📄 references.bib</div>
+            <div class="file-item">📁 figures</div>
+        </aside>
+
+        <div class="resizer" id="resizer-1"></div>
+
+        <section class="card" id="editor-panel">
+            <header class="panel-header">
+                <div class="header-group">
+                    <button class="tool-btn" data-tooltip="Version History">History</button>
+                    <div class="divider"></div>
+
+                    <button class="tool-btn" data-tooltip="Undo (Ctrl+Z)">↶</button>
+                    <button class="tool-btn" data-tooltip="Redo (Ctrl+Y)">↷</button>
+                    <div class="divider"></div>
+
+                    <button class="tool-btn" style="font-weight: bold;" data-tooltip="Bold Text">B</button>
+                    <button class="tool-btn" style="font-style: italic;" data-tooltip="Italic Text">I</button>
+                    <div class="divider"></div>
+
+                    <button class="tool-btn" data-tooltip="Insert Math">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="18 4 6 4 13 12 6 20 18 20"></polyline>
+                        </svg>
+                    </button>
+
+                    <button class="tool-btn" data-tooltip="Insert Symbol">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="4"></circle>
+                            <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path>
+                        </svg>
+                    </button>
+
+                    <button class="tool-btn" data-tooltip="Insert Link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                    </button>
+
+                    <button class="tool-btn" data-tooltip="Insert Citation">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </button>
+
+                    <button class="tool-btn" data-tooltip="Insert Image">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                    </button>
+
+                    <button class="tool-btn" data-tooltip="Insert Bullet List">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="8" y1="6" x2="21" y2="6"></line>
+                            <line x1="8" y1="12" x2="21" y2="12"></line>
+                            <line x1="8" y1="18" x2="21" y2="18"></line>
+                            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="view-toggle">
+                    <div class="toggle-btn active">SOURCE</div>
+                    <div class="toggle-btn">CANVAS</div>
+                </div>
+            </header>
+            <div class="editor-body">
+                <textarea spellcheck="false">\documentclass{article}
+\begin{document}
+Hover over the icons near the boundaries!
+
+The tooltips now float perfectly on top without getting hidden by the center code panel.
+\end{document}</textarea>
+            </div>
+        </section>
+
+        <div class="resizer" id="resizer-2"></div>
+
+        <section class="card" id="preview-panel">
+            <header class="panel-header">
+                <div class="header-group">
+
+                    <button class="tool-btn" data-tooltip="log files">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        Logs
+                    </button>
+
+                    <div class="divider"></div>
+
+                    <button class="tool-btn" data-tooltip="Download PDF Document">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        PDF
+                    </button>
+                    <button class="tool-btn" data-tooltip="Toggle Dark Mode Preview">🌓 Invert</button>
+                </div>
+
+                <div class="zoom-controls">
+                    <span class="zoom-label">Zoom</span>
+                    <input type="range" class="zoom-slider" min="50" max="150" value="100"
+                        data-tooltip="Adjust Magnification">
+                </div>
+            </header>
+            <div class="pdf-content">
+                <div class="pdf-page"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div>Engine: pdfLaTeX</div>
+    </footer>
+
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const preview = document.getElementById('preview-panel');
+        const resizer1 = document.getElementById('resizer-1');
+        const resizer2 = document.getElementById('resizer-2');
+
+        let isResizingLeft = false;
+        let isResizingRight = false;
+
+        resizer1.addEventListener('mousedown', () => isResizingLeft = true);
+        resizer2.addEventListener('mousedown', () => isResizingRight = true);
+
+        document.addEventListener('mousemove', (e) => {
+            if (isResizingLeft) {
+                let w = e.clientX;
+                if (w > 180 && w < 450) sidebar.style.width = w + 'px';
+            } else if (isResizingRight) {
+                let w = window.innerWidth - e.clientX;
+                if (w > 250 && w < (window.innerWidth * 0.7)) preview.style.width = w + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isResizingLeft = false;
+            isResizingRight = false;
+        });
+    </script>
+</body>
+
+</html>

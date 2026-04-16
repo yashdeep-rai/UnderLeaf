@@ -11,7 +11,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
- * CreateBlankProject creates the directory and scaffolds a main.tex inside.
  * @param {string} path
  * @returns {$CancellablePromise<void>}
  */
@@ -20,8 +19,6 @@ export function CreateBlankProject(path) {
 }
 
 /**
- * CreateEmptyFile creates a blank file inside the project.
- * For .tex files, a minimal LaTeX boilerplate is written instead of empty content.
  * @param {string} dirPath
  * @param {string} filename
  * @returns {$CancellablePromise<void>}
@@ -31,7 +28,6 @@ export function CreateEmptyFile(dirPath, filename) {
 }
 
 /**
- * DeleteProject removes a project from the saved list by path.
  * @param {string} path
  * @returns {$CancellablePromise<void>}
  */
@@ -48,7 +44,6 @@ export function GetCurrentProject() {
 }
 
 /**
- * GetProjects returns all saved projects.
  * @returns {$CancellablePromise<$models.ProjectRecord[]>}
  */
 export function GetProjects() {
@@ -58,19 +53,47 @@ export function GetProjects() {
 }
 
 /**
- * ListFiles returns the file tree of the given directory.
+ * ImportFile picks a file and copies it to the project path.
+ * @param {string} targetDir
+ * @returns {$CancellablePromise<void>}
+ */
+export function ImportFile(targetDir) {
+    return $Call.ByID(1694890310, targetDir);
+}
+
+/**
+ * ImportProjectFromZip creates a new project from a selected zip file.
+ * @param {string} projectName
+ * @param {string} targetBaseDir
+ * @returns {$CancellablePromise<$models.ProjectRecord | null>}
+ */
+export function ImportProjectFromZip(projectName, targetBaseDir) {
+    return $Call.ByID(1463618708, projectName, targetBaseDir).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType2($result);
+    }));
+}
+
+/**
+ * ImportZip picks a zip and extracts it to the project path.
+ * @param {string} targetDir
+ * @returns {$CancellablePromise<void>}
+ */
+export function ImportZip(targetDir) {
+    return $Call.ByID(4135890847, targetDir);
+}
+
+/**
  * @param {string} dirPath
  * @returns {$CancellablePromise<$models.FileNode | null>}
  */
 export function ListFiles(dirPath) {
     return $Call.ByID(127973248, dirPath).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType3($result);
+        return $$createType4($result);
     }));
 }
 
 /**
  * PickDirectory opens a native OS dialog to select a folder and returns the path.
- * Returns an empty string if cancelled.
  * @param {string} title
  * @returns {$CancellablePromise<string>}
  */
@@ -79,7 +102,6 @@ export function PickDirectory(title) {
 }
 
 /**
- * ReadFile reads a file from the filesystem.
  * @param {string} path
  * @returns {$CancellablePromise<string>}
  */
@@ -88,7 +110,6 @@ export function ReadFile(path) {
 }
 
 /**
- * SaveFile saves text content to the filesystem.
  * @param {string} path
  * @param {string} content
  * @returns {$CancellablePromise<void>}
@@ -98,7 +119,18 @@ export function SaveFile(path, content) {
 }
 
 /**
- * SaveProject saves/updates a named project record to the projects list.
+ * SaveImageAsset writes a base64-encoded image from the frontend into <projectPath>/assets/.
+ * Returns the relative path usable in \includegraphics (e.g. "assets/photo.png").
+ * @param {string} projectPath
+ * @param {string} filename
+ * @param {string} base64Data
+ * @returns {$CancellablePromise<string>}
+ */
+export function SaveImageAsset(projectPath, filename, base64Data) {
+    return $Call.ByID(613072743, projectPath, filename, base64Data);
+}
+
+/**
  * @param {string} name
  * @param {string} path
  * @returns {$CancellablePromise<void>}
@@ -108,7 +140,7 @@ export function SaveProject(name, path) {
 }
 
 /**
- * SetCurrentProject sets the active project directory (does NOT persist automatically).
+ * SetCurrentProject sets the active project directory.
  * @param {string} path
  * @returns {$CancellablePromise<void>}
  */
@@ -117,7 +149,6 @@ export function SetCurrentProject(path) {
 }
 
 /**
- * ValidateProject checks if a given directory path exists.
  * @param {string} path
  * @returns {$CancellablePromise<boolean>}
  */
@@ -128,5 +159,6 @@ export function ValidateProject(path) {
 // Private type creation functions
 const $$createType0 = $models.ProjectRecord.createFrom;
 const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $models.FileNode.createFrom;
-const $$createType3 = $Create.Nullable($$createType2);
+const $$createType2 = $Create.Nullable($$createType0);
+const $$createType3 = $models.FileNode.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);

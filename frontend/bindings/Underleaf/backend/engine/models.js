@@ -21,6 +21,7 @@ export class CompileResult {
         }
         if (!("pdfData" in $$source)) {
             /**
+             * base64 for JSON transport
              * @member
              * @type {string}
              */
@@ -33,12 +34,33 @@ export class CompileResult {
              */
             this["errors"] = [];
         }
+        if (!("warnings" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["warnings"] = [];
+        }
         if (!("output" in $$source)) {
             /**
              * @member
              * @type {string}
              */
             this["output"] = "";
+        }
+        if (!("fullLog" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["fullLog"] = "";
+        }
+        if (!("missingPackage" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["missingPackage"] = "";
         }
 
         Object.assign(this, $$source);
@@ -50,14 +72,14 @@ export class CompileResult {
      * @returns {CompileResult}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $Create.ByteSlice;
         const $$createField2_0 = $$createType0;
+        const $$createField3_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("pdfData" in $$parsedSource) {
-            $$parsedSource["pdfData"] = $$createField1_0($$parsedSource["pdfData"]);
-        }
         if ("errors" in $$parsedSource) {
             $$parsedSource["errors"] = $$createField2_0($$parsedSource["errors"]);
+        }
+        if ("warnings" in $$parsedSource) {
+            $$parsedSource["warnings"] = $$createField3_0($$parsedSource["warnings"]);
         }
         return new CompileResult(/** @type {Partial<CompileResult>} */($$parsedSource));
     }

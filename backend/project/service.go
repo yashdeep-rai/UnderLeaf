@@ -1,11 +1,16 @@
 package project
 
 import (
+	"archive/zip"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"github.com/sqweek/dialog"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type Service struct {
@@ -35,26 +40,203 @@ func (s *Service) GetCurrentProject() string {
 	return s.activeProject
 }
 
-// SetCurrentProject sets the active project directory (does NOT persist automatically).
+// SetCurrentProject sets the active project directory.
 func (s *Service) SetCurrentProject(path string) {
 	s.activeProject = path
 }
 
 // PickDirectory opens a native OS dialog to select a folder and returns the path.
-// Returns an empty string if cancelled.
 func (s *Service) PickDirectory(title string) string {
-	dir, err := dialog.Directory().Title(title).Browse()
+	dir, err := application.Get().Dialog.OpenFile().
+		SetTitle(title).
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		PromptForSingleSelection()
 	if err != nil {
 		return ""
 	}
 	return dir
 }
 
-// SaveProject saves/updates a named project record to the projects list.
+// ImportFile picks a file and copies it to the project path.
+func (s *Service) ImportFile(targetDir string) error {
+	path, err := application.Get().Dialog.OpenFile().
+		SetTitle("Select File to Import").
+		PromptForSingleSelection()
+	if err != nil || path == "" {
+		return nil
+	}
+
+	dest := filepath.Join(targetDir, filepath.Base(path))
+	return copyFile(path, dest)
+}
+
+// SaveImageAsset writes a base64-encoded image from the frontend into <projectPath>/assets/.
+// Returns the relative path usable in \includegraphics (e.g. "assets/photo.png").
+func (s *Service) SaveImageAsset(projectPath string, filename string, base64Data string) (string, error) {
+	assetsDir := filepath.Join(projectPath, "assets")
+	if err := os.MkdirAll(assetsDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create assets dir: %w", err)
+	}
+
+	data, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	safeName := filepath.Base(filename)
+	destPath := filepath.Join(assetsDir, safeName)
+	if err := os.WriteFile(destPath, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write image: %w", err)
+	}
+
+	return "assets/" + safeName, nil
+}
+
+// ImportZip picks a zip and extracts it to the project path.
+func (s *Service) ImportZip(targetDir string) error {
+	path, err := application.Get().Dialog.OpenFile().
+		SetTitle("Select Zip Archive to Import").
+		AddFilter("Zip Archives", "*.zip").
+		PromptForSingleSelection()
+	if err != nil || path == "" {
+		return nil
+	}
+
+	return s.extractZip(path, targetDir)
+}
+
+// ImportProjectFromZip creates a new project from a selected zip file.
+func (s *Service) ImportProjectFromZip(projectName string, targetBaseDir string) (*ProjectRecord, error) {
+	zipPath, err := application.Get().Dialog.OpenFile().
+		SetTitle("Select Project Zip").
+		AddFilter("Zip Archives", "*.zip").
+		PromptForSingleSelection()
+	if err != nil || zipPath == "" {
+		return nil, nil
+	}
+
+	projectPath := filepath.Join(targetBaseDir, projectName)
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
+		return nil, err
+	}
+
+	if err := s.extractZip(zipPath, projectPath); err != nil {
+		return nil, err
+	}
+
+	if err := s.SaveProject(projectName, projectPath); err != nil {
+		return nil, err
+	}
+
+	return &ProjectRecord{Name: projectName, Path: projectPath}, nil
+}
+
+func (s *Service) extractZip(zipPath string, dest string) error {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	// ── Detect if all files share a common root directory ──
+	var commonPrefix string
+	hasRootFiles := false
+
+	// First pass: find the common root if any
+	for i, f := range r.File {
+		name := filepath.ToSlash(f.Name)
+		parts := strings.Split(name, "/")
+		
+		// If there is a file in the root of the zip, there's no common directory to strip
+		if len(parts) == 1 && !f.FileInfo().IsDir() {
+			hasRootFiles = true
+			break
+		}
+		
+		if i == 0 {
+			if len(parts) > 0 {
+				commonPrefix = parts[0] + "/"
+			}
+		} else if commonPrefix != "" && !strings.HasPrefix(name, commonPrefix) {
+			commonPrefix = ""
+		}
+	}
+
+	if hasRootFiles {
+		commonPrefix = ""
+	}
+
+	for _, f := range r.File {
+		name := filepath.ToSlash(f.Name)
+		if commonPrefix != "" && strings.HasPrefix(name, commonPrefix) {
+			name = strings.TrimPrefix(name, commonPrefix)
+			// If it was just the directory entry itself, skip
+			if name == "" {
+				continue
+			}
+		}
+
+		fpath := filepath.Join(dest, name)
+
+		// Check for ZipSlip vulnerability
+		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path: %s", fpath)
+		}
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, os.ModePerm)
+			continue
+		}
+
+		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+
+		outFile.Close()
+		rc.Close()
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	return err
+}
+
+// Existing methods preserved below...
+
 func (s *Service) SaveProject(name string, path string) error {
 	projects, _ := s.loadProjects()
-
-	// Remove existing entry for this path (de-dup), then prepend
 	var updated []ProjectRecord
 	updated = append(updated, ProjectRecord{Name: name, Path: path})
 	for _, p := range projects {
@@ -68,7 +250,6 @@ func (s *Service) SaveProject(name string, path string) error {
 	return s.saveProjects(updated)
 }
 
-// GetProjects returns all saved projects.
 func (s *Service) GetProjects() []ProjectRecord {
 	projects, _ := s.loadProjects()
 	if projects == nil {
@@ -77,7 +258,6 @@ func (s *Service) GetProjects() []ProjectRecord {
 	return projects
 }
 
-// DeleteProject removes a project from the saved list by path.
 func (s *Service) DeleteProject(path string) error {
 	projects, _ := s.loadProjects()
 	var updated []ProjectRecord
@@ -127,18 +307,15 @@ func (s *Service) saveProjects(projects []ProjectRecord) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// ValidateProject checks if a given directory path exists.
 func (s *Service) ValidateProject(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
 }
 
-// CreateEmptyFile creates a blank file inside the project.
-// For .tex files, a minimal LaTeX boilerplate is written instead of empty content.
 func (s *Service) CreateEmptyFile(dirPath string, filename string) error {
 	fullPath := filepath.Join(dirPath, filename)
 	if _, err := os.Stat(fullPath); err == nil {
-		return nil // already exists
+		return nil
 	}
 	content := ""
 	if filepath.Ext(filename) == ".tex" {
@@ -147,7 +324,6 @@ func (s *Service) CreateEmptyFile(dirPath string, filename string) error {
 	return os.WriteFile(fullPath, []byte(content), 0644)
 }
 
-// CreateBlankProject creates the directory and scaffolds a main.tex inside.
 func (s *Service) CreateBlankProject(path string) error {
 	if err := os.MkdirAll(path, 0755); err != nil {
 		return err
@@ -160,7 +336,6 @@ func (s *Service) CreateBlankProject(path string) error {
 	return nil
 }
 
-// ListFiles returns the file tree of the given directory.
 func (s *Service) ListFiles(dirPath string) (*FileNode, error) {
 	return buildFileTree(dirPath)
 }
@@ -193,13 +368,11 @@ func buildFileTree(path string) (*FileNode, error) {
 	return node, nil
 }
 
-// ReadFile reads a file from the filesystem.
 func (s *Service) ReadFile(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	return string(data), err
 }
 
-// SaveFile saves text content to the filesystem.
 func (s *Service) SaveFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0644)
 }

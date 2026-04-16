@@ -1,16 +1,43 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface ViewerProps {
   pdfData: string; // Base64 encoded PDF or empty string
+  isCompiling?: boolean;
 }
 
-export function Viewer({ pdfData }: ViewerProps) {
+export function Viewer({ pdfData, isCompiling }: ViewerProps) {
+  const [blobUrl, setBlobUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (!pdfData) {
+      setBlobUrl("");
+      return;
+    }
+    
+    try {
+      // Decode base64 to Blob to avoid WebView2 iframe data: URI size limits entirely
+      const byteCharacters = atob(pdfData);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      setBlobUrl(url);
+
+      return () => URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Failed to create PDF blob:", e);
+    }
+  }, [pdfData]);
+
   return (
     <div className="flex-1 w-full h-full bg-gray-800 flex items-center justify-center">
-      {pdfData ? (
+      {blobUrl ? (
         <iframe
-          src={`data:application/pdf;base64,${pdfData}`}
-          className="w-full h-full border-0"
+          src={blobUrl}
+          className={`w-full h-full border-0 transition-opacity duration-300 ${isCompiling ? 'opacity-50' : 'opacity-100'}`}
           title="PDF Viewer"
         />
       ) : (

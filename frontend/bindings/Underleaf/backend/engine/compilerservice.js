@@ -11,12 +11,20 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
- * @param {string} projectPath
- * @param {string} content
+ * ClearCache removes the Tectonic cache on Windows, forcing a fresh package download.
+ * @returns {$CancellablePromise<void>}
+ */
+export function ClearCache() {
+    return $Call.ByID(4172808486);
+}
+
+/**
+ * Compile compiles the given .tex file with Tectonic and returns the result.
+ * @param {string} activeFilePath
  * @returns {$CancellablePromise<$models.CompileResult | null>}
  */
-export function Compile(projectPath, content) {
-    return $Call.ByID(1429634592, projectPath, content).then(/** @type {($result: any) => any} */(($result) => {
+export function Compile(activeFilePath) {
+    return $Call.ByID(1429634592, activeFilePath).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
