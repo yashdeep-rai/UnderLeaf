@@ -23,6 +23,8 @@ func init() {
 }
 
 func main() {
+	HideTerminal()
+	
 	// Resolve tectonic sidecar path relative to the running executable.
 	// os.Executable() gives us the real binary location whether in dev (bin/) or packaged.
 	exePath, err := os.Executable()

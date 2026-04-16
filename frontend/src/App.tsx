@@ -425,24 +425,22 @@ export default function App() {
             )}
 
             {/* Error/Warning Overlay */}
-            {!isLogDismissed && (compileError || compileWarnings || showFullLog) && (
-              <div className={`error-overlay ${compileError ? 'error' : 'warning'}`}>
+            {/* Error/Warning/Log Overlay */}
+            {showFullLog && (
+              <div className={`error-overlay ${compileError ? 'error' : (compileWarnings ? 'warning' : '')}`} style={!compileError && !compileWarnings ? { background: '#1e293b' } : {}}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <h3 style={{ fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 style={{ fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
                     <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       {compileError
                         ? <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         : <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                       }
                     </svg>
-                    {showFullLog ? 'Raw Compiler Output' : (compileError ? 'Compilation Failed' : 'Warnings')}
+                    Compiler Logs {compileError ? '(Compilation Failed)' : (compileWarnings ? '(Warnings Detected)' : '(Clean)')}
                   </h3>
                   {!isCompiling && (
                     <div style={{ display: 'flex', gap: '6px' }}>
-                      <button onClick={() => setShowFullLog(!showFullLog)} className="log-toggle-btn">
-                        {showFullLog ? 'Summary' : 'Raw Log'}
-                      </button>
-                      <button onClick={() => { setIsLogDismissed(true); setShowFullLog(false); }} className="log-close-btn">
+                      <button onClick={() => setShowFullLog(false)} className="log-close-btn" style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
                         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                       </button>
                     </div>
@@ -450,10 +448,8 @@ export default function App() {
                 </div>
                 
                 <div className="log-content">
-                    <pre className="log-pre">
-                        {showFullLog
-                          ? (fullLog || "No output.")
-                          : (compileError || compileWarnings || "No details.")}
+                    <pre className="log-pre" style={{ color: '#e2e8f0', margin: 0 }}>
+                        {fullLog || "No compilation logs generated yet."}
                     </pre>
                 </div>
               </div>
