@@ -1,0 +1,10 @@
+{
+  "$schema": "https://wails.io/schemas/v3.json",
+  "name": "UnderLeaf",
+  "frontend": {
+    "build": "npm run build",
+    "dev": "npm run dev",
+    "dir": "frontend",
+    "install": "npm install"
+  }
+}
