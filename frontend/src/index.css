@@ -3,6 +3,24 @@
 
 @layer base {
   body {
-    @apply bg-gray-900 text-gray-100 m-0 p-0 overflow-hidden h-screen w-screen font-sans;
+    @apply bg-slate-50 text-slate-800 m-0 p-0 overflow-hidden h-screen w-screen font-sans;
   }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full border-2 border-solid border-slate-50;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
 }

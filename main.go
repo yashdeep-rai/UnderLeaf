@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 
 	"Underleaf/backend/ai"
+	"Underleaf/backend/ast"
 	"Underleaf/backend/engine"
+	"Underleaf/backend/project"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -34,6 +36,8 @@ func main() {
 		Description: "A LaTeX IDE built with Wails and React",
 		Services: []application.Service{
 			application.NewService(engine.NewCompilerService(sidecarPath)),
+			application.NewService(project.NewProjectService()),
+			application.NewService(ast.NewASTService()),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

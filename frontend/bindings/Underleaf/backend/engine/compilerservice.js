@@ -10,8 +10,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * Compile takes raw LaTeX source, writes to a temp file, compiles using the Tectonic sidecar,
  * and returns the resulting PDF as a base64 encoded string.
  * @param {string} source
+ * @param {string} projectPath
  * @returns {$CancellablePromise<string>}
  */
-export function Compile(source) {
-    return $Call.ByID(1429634592, source);
+export function Compile(source, projectPath) {
+    return $Call.ByID(1429634592, source, projectPath);
 }

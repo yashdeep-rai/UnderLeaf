@@ -7,11 +7,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 )
 
 type CompilerService struct {
 	sidecarPath string
+	mu          sync.Mutex
 }
 
 func NewCompilerService(sidecarPath string) *CompilerService {
@@ -20,7 +23,10 @@ func NewCompilerService(sidecarPath string) *CompilerService {
 
 // Compile takes raw LaTeX source, writes to a temp file, compiles using the Tectonic sidecar,
 // and returns the resulting PDF as a base64 encoded string.
-func (c *CompilerService) Compile(source string) (string, error) {
+func (c *CompilerService) Compile(source string, projectPath string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// Create a temporary directory for the compilation
 	tempDir, err := os.MkdirTemp("", "underleaf-compile-*")
 	if err != nil {
@@ -40,14 +46,19 @@ func (c *CompilerService) Compile(source string) (string, error) {
 
 	// Run tectonic with --outdir pointing to tempDir so the PDF lands there
 	cmd := exec.CommandContext(ctx, c.sidecarPath, "--outdir", tempDir, texFile)
-	cmd.Dir = tempDir
+	if projectPath != "" {
+		cmd.Dir = projectPath
+	} else {
+		cmd.Dir = tempDir
+	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return "", fmt.Errorf("compilation timed out after 60s")
 		}
-		return "", fmt.Errorf("compilation failed: %v\nOutput: %s", err, string(output))
+		cleanOutput := filterTectonicOutput(string(output))
+		return "", fmt.Errorf("%s", cleanOutput)
 	}
 
 	// Read the resulting PDF
@@ -59,4 +70,24 @@ func (c *CompilerService) Compile(source string) (string, error) {
 
 	// Encode to base64
 	return base64.StdEncoding.EncodeToString(pdfBytes), nil
+}
+
+// filterTectonicOutput extracts only meaningful error/warning lines from Tectonic's verbose output.
+func filterTectonicOutput(raw string) string {
+	lines := strings.Split(raw, "\n")
+	var errs []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "error:") || strings.HasPrefix(line, "warning:") {
+			// Skip noise-only warnings
+			if strings.Contains(line, "Fontconfig") || strings.Contains(line, "Overfull") {
+				continue
+			}
+			errs = append(errs, line)
+		}
+	}
+	if len(errs) == 0 {
+		return "compilation failed (no output)"
+	}
+	return strings.Join(errs, "\n")
 }
