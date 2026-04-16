@@ -1,93 +1,93 @@
 package engine
 
 import (
-	"context"
-	"encoding/base64"
-	"fmt"
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
-	"sync"
-	"time"
 )
 
+type CompileResult struct {
+	Success bool     `json:"success"`
+	PDFData []byte   `json:"pdfData"`
+	Errors  []string `json:"errors"`
+	Output  string   `json:"output"`
+}
+
 type CompilerService struct {
-	sidecarPath string
-	mu          sync.Mutex
+	tectonicPath string
 }
 
-func NewCompilerService(sidecarPath string) *CompilerService {
-	return &CompilerService{sidecarPath: sidecarPath}
+func NewCompilerService(tectonicPath string) *CompilerService {
+	return &CompilerService{tectonicPath: tectonicPath}
 }
 
-// Compile takes raw LaTeX source, writes to a temp file, compiles using the Tectonic sidecar,
-// and returns the resulting PDF as a base64 encoded string.
-func (c *CompilerService) Compile(source string, projectPath string) (string, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Create a temporary directory for the compilation
-	tempDir, err := os.MkdirTemp("", "underleaf-compile-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp directory: %w", err)
+func (s *CompilerService) Compile(projectPath, content string) (*CompileResult, error) {
+	if projectPath == "" || content == "" {
+		return &CompileResult{Success: false, Errors: []string{"Empty document or project path"}}, nil
 	}
-	defer os.RemoveAll(tempDir) // Clean up temp files when done
 
-	// Write the source to a .tex file
+	tempDir, err := os.MkdirTemp("", "underleaf-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tempDir)
+
 	texFile := filepath.Join(tempDir, "document.tex")
-	if err := os.WriteFile(texFile, []byte(source), 0644); err != nil {
-		return "", fmt.Errorf("failed to write source file: %w", err)
+	if err := os.WriteFile(texFile, []byte(content), 0644); err != nil {
+		return nil, err
 	}
 
-	// 60-second timeout so a hung tectonic never freezes the UI
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+	// Tectonic command
+	cmd := exec.Command(s.tectonicPath, "document.tex")
+	cmd.Dir = tempDir
 
-	// Run tectonic with --outdir pointing to tempDir so the PDF lands there
-	cmd := exec.CommandContext(ctx, c.sidecarPath, "--outdir", tempDir, texFile)
-	if projectPath != "" {
-		cmd.Dir = projectPath
-	} else {
-		cmd.Dir = tempDir
-	}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("compilation timed out after 60s")
-		}
-		cleanOutput := filterTectonicOutput(string(output))
-		return "", fmt.Errorf("%s", cleanOutput)
-	}
+	err = cmd.Run()
+	output := stdout.String() + stderr.String()
 
-	// Read the resulting PDF
-	pdfFile := filepath.Join(tempDir, "document.pdf")
-	pdfBytes, err := os.ReadFile(pdfFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read generated PDF: %w", err)
-	}
-
-	// Encode to base64
-	return base64.StdEncoding.EncodeToString(pdfBytes), nil
-}
-
-// filterTectonicOutput extracts only meaningful error/warning lines from Tectonic's verbose output.
-func filterTectonicOutput(raw string) string {
-	lines := strings.Split(raw, "\n")
-	var errs []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "error:") || strings.HasPrefix(line, "warning:") {
-			// Skip noise-only warnings
-			if strings.Contains(line, "Fontconfig") || strings.Contains(line, "Overfull") {
-				continue
-			}
-			errs = append(errs, line)
+	// Parse errors from Tectonic output
+	var latexErrors []string
+	re := regexp.MustCompile(`(?m)^error: (.*)|^.*\.tex:\d+: (.*)`)
+	matches := re.FindAllStringSubmatch(output, -1)
+	for _, m := range matches {
+		if m[1] != "" {
+			latexErrors = append(latexErrors, m[1])
+		} else if m[2] != "" {
+			latexErrors = append(latexErrors, m[2])
 		}
 	}
-	if len(errs) == 0 {
-		return "compilation failed (no output)"
+
+	// Filter noise
+	filteredErrors := []string{}
+	for _, e := range latexErrors {
+		if !strings.Contains(e, "Fontconfig") && !strings.Contains(e, "overfull") {
+			filteredErrors = append(filteredErrors, e)
+		}
 	}
-	return strings.Join(errs, "\n")
+
+	if err != nil && len(filteredErrors) == 0 {
+		filteredErrors = append(filteredErrors, "Compilation failed (see console for details)")
+	}
+
+	result := &CompileResult{
+		Success: err == nil,
+		Errors:  filteredErrors,
+		Output:  output,
+	}
+
+	if err == nil {
+		pdfPath := filepath.Join(tempDir, "document.pdf")
+		pdfData, readErr := os.ReadFile(pdfPath)
+		if readErr == nil {
+			result.PDFData = pdfData
+		}
+	}
+
+	return result, nil
 }

@@ -6,13 +6,21 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
- * Compile takes raw LaTeX source, writes to a temp file, compiles using the Tectonic sidecar,
- * and returns the resulting PDF as a base64 encoded string.
- * @param {string} source
  * @param {string} projectPath
- * @returns {$CancellablePromise<string>}
+ * @param {string} content
+ * @returns {$CancellablePromise<$models.CompileResult | null>}
  */
-export function Compile(source, projectPath) {
-    return $Call.ByID(1429634592, source, projectPath);
+export function Compile(projectPath, content) {
+    return $Call.ByID(1429634592, projectPath, content).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
 }
+
+// Private type creation functions
+const $$createType0 = $models.CompileResult.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);

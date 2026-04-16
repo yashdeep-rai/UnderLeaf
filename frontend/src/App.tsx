@@ -87,7 +87,12 @@ export default function App() {
           {isCompiling && <span className="text-blue-500 animate-pulse">Compiling...</span>}
         </div>
         {activeFilePath ? (
-          <Editor value={source} onChange={setSource} projectPath={projectPath} />
+          <Editor 
+            value={source} 
+            onChange={setSource} 
+            projectPath={projectPath} 
+            activeFilePath={activeFilePath} 
+          />
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
             Select a .tex file from the explorer to edit.

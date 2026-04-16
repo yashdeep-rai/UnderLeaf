@@ -6,3 +6,7 @@ import * as CompilerService from "./compilerservice.js";
 export {
     CompilerService
 };
+
+export {
+    CompileResult
+} from "./models.js";

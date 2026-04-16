@@ -8,26 +8,28 @@ export function useCompiler(debouncedSource: string, projectPath: string) {
 
   const compileAction = async (src: string) => {
     const trimmed = src.trim();
-    if (!trimmed) {
-      setPdfData("");
+    if (!trimmed || !projectPath) return;
+
+    // Safety checks for minimum LaTeX structure
+    if (!trimmed.includes('\\documentclass')) {
       return;
     }
-    // Don't try to compile if \begin{document} block is empty — Tectonic crashes on empty docs
-    const bodyMatch = trimmed.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
-    if (bodyMatch && !bodyMatch[1].trim()) {
-      setPdfData("");
-      return;
-    }
-    // Also skip if source doesn't even contain \documentclass (plain text file, etc.)
-    if (!trimmed.includes('\\documentclass') && !trimmed.includes('\\begin{document}')) {
-      setPdfData("");
-      return;
-    }
+
     setIsCompiling(true);
     setCompileError("");
     try {
-      const result = await Compile(src, projectPath);
-      setPdfData(result);
+      // Note the order: projectPath first, then content
+      const result = await Compile(projectPath, src);
+      
+      if (result) {
+        if (result.success && result.pdfData) {
+          // Convert binary PDF data to Base64 for the viewer
+          setPdfData(result.pdfData);
+          setCompileError("");
+        } else if (result.errors && result.errors.length > 0) {
+          setCompileError(result.errors.join("\n"));
+        }
+      }
     } catch (err: any) {
       setCompileError(err.toString());
     } finally {
@@ -36,8 +38,15 @@ export function useCompiler(debouncedSource: string, projectPath: string) {
   };
 
   useEffect(() => {
-    compileAction(debouncedSource);
-  }, [debouncedSource]);
+    if (debouncedSource) {
+      compileAction(debouncedSource);
+    }
+  }, [debouncedSource, projectPath]);
 
-  return { pdfData, isCompiling, compileError, manualCompile: () => compileAction(debouncedSource) };
+  return { 
+    pdfData, 
+    isCompiling, 
+    compileError, 
+    manualCompile: () => compileAction(debouncedSource) 
+  };
 }
