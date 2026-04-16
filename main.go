@@ -37,6 +37,7 @@ func main() {
 		Services: []application.Service{
 			application.NewService(engine.NewCompilerService(sidecarPath)),
 			application.NewService(project.NewProjectService()),
+			application.NewService(project.NewSnapshotService()),
 			application.NewService(ast.NewASTService()),
 		},
 		Assets: application.AssetOptions{

@@ -100,6 +100,86 @@ export class ProjectRecord {
     }
 }
 
+/**
+ * SnapshotData represents the full payload for the frontend
+ */
+export class SnapshotData {
+    /**
+     * Creates a new SnapshotData instance.
+     * @param {Partial<SnapshotData>} [$$source = {}] - The source object to create the SnapshotData.
+     */
+    constructor($$source = {}) {
+        if (!("source" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["source"] = "";
+        }
+        if (!("pdfBase64" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["pdfBase64"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SnapshotData instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SnapshotData}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SnapshotData(/** @type {Partial<SnapshotData>} */($$parsedSource));
+    }
+}
+
+export class SnapshotMeta {
+    /**
+     * Creates a new SnapshotMeta instance.
+     * @param {Partial<SnapshotMeta>} [$$source = {}] - The source object to create the SnapshotMeta.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("timestamp" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["timestamp"] = "";
+        }
+        if (!("label" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["label"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SnapshotMeta instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SnapshotMeta}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SnapshotMeta(/** @type {Partial<SnapshotMeta>} */($$parsedSource));
+    }
+}
+
 // Private type creation functions
 const $$createType0 = FileNode.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);

@@ -101,7 +101,11 @@ export function FileExplorer({ onFileSelect, activeFilePath, onCloseProject, onI
 
   const handleCreateFile = async (filename: string) => {
     try {
-      await CreateEmptyFile(projectPath, filename);
+      let finalName = filename;
+      if (!finalName.includes('.')) {
+        finalName += '.tex';
+      }
+      await CreateEmptyFile(projectPath, finalName);
       await refreshTree();
     } catch (e) {
       alert("Failed to create file: " + e);

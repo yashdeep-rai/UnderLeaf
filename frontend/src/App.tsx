@@ -7,7 +7,9 @@ import { useDebounce } from './hooks/useDebounce';
 import { useCompiler } from './hooks/useCompiler';
 import { useContextMenu } from './components/ContextMenu';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { TimelineSidebar } from './components/TimelineSidebar';
 import { ReadFile, SaveFile, ImportFile, ImportZip } from '../bindings/Underleaf/backend/project/service.js';
+import { GetSnapshotData } from '../bindings/Underleaf/backend/project/snapshotservice.js';
 import { ClearCache } from '../bindings/Underleaf/backend/engine/compilerservice.js';
 
 export default function App() {
@@ -23,6 +25,12 @@ export default function App() {
   const [repairMsg, setRepairMsg] = useState("");
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [isLogDismissed, setIsLogDismissed] = useState(false);
+
+  // Time Travel states
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [previewSnapshotId, setPreviewSnapshotId] = useState<string | null>(null);
+  const [previewSource, setPreviewSource] = useState<string>("");
+  const [previewPdfData, setPreviewPdfData] = useState<string>("");
 
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [previewWidth, setPreviewWidth] = useState(window.innerWidth * 0.4);
@@ -97,6 +105,21 @@ export default function App() {
   }, [debouncedSource, loadedFilePath, activeFilePath]);
   
   const { pdfData, isCompiling, compileError, compileWarnings, manualCompile, fullLog, prevLog, missingPackage } = useCompiler(activeFilePath, debouncedSource, isAutoCompile);
+
+  // When previewSnapshotId changes, fetch the snapshot code and pdf
+  useEffect(() => {
+    if (previewSnapshotId && projectPath) {
+      GetSnapshotData(projectPath, previewSnapshotId).then(data => {
+        if (data) {
+          setPreviewSource(data.source);
+          setPreviewPdfData(data.pdfBase64);
+        }
+      }).catch(console.error);
+    } else {
+      setPreviewSource("");
+      setPreviewPdfData("");
+    }
+  }, [previewSnapshotId, projectPath]);
 
   // Reset dismissed log state whenever we start compiling
   useEffect(() => {
@@ -287,7 +310,7 @@ export default function App() {
             </header>
             <div className="editor-body relative" onContextMenu={openEditorCtx}>
               {activeFilePath ? (
-                <Editor value={source} onChange={setSource} projectPath={projectPath} activeFilePath={activeFilePath} onAssetSaved={() => setRefreshCounter(c => c+1)} />
+                <Editor value={previewSnapshotId ? previewSource : source} onChange={setSource} projectPath={projectPath} activeFilePath={activeFilePath} onAssetSaved={() => setRefreshCounter(c => c+1)} readOnly={!!previewSnapshotId} />
               ) : (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '13px', flexDirection: 'column', gap: '8px' }}>
                   <svg width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" style={{ opacity: 0.4 }}>
@@ -316,6 +339,13 @@ export default function App() {
                         Logs
                     </button>
                     <div className="divider"></div>
+                    <button className="tool-btn" data-tooltip="View Timeline" onClick={() => setShowTimeline(!showTimeline)}
+                      style={showTimeline ? { color: 'white', background: 'rgba(255,255,255,0.15)' } : {}}>
+                        <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Time Travel
+                    </button>
+
+                    <div className="divider"></div>
                     <button
                       className="tool-btn"
                       data-tooltip="Download PDF"
@@ -341,7 +371,7 @@ export default function App() {
             </header>
             
             <div className="pdf-content relative" style={{ padding: 0, overflow: 'hidden', height: '100%', background: 'var(--preview-bg)' }}>
-              <Viewer pdfData={pdfData} isCompiling={isCompiling} />
+              <Viewer pdfData={previewSnapshotId ? previewPdfData : pdfData} isCompiling={isCompiling && !previewSnapshotId} />
             </div>
             
             {/* Repair Overlay Info */}
@@ -429,8 +459,42 @@ export default function App() {
               </div>
             )}
         </section>
+
+        <TimelineSidebar
+          isOpen={showTimeline}
+          projectPath={projectPath}
+          activeFilePath={activeFilePath}
+          pdfData={pdfData}
+          onClose={() => setShowTimeline(false)}
+          previewSnapshotId={previewSnapshotId}
+          onPreviewSnapshot={setPreviewSnapshotId}
+          onRestored={() => {
+            setPreviewSnapshotId(null);
+            ReadFile(activeFilePath).then((content) => setSource(content));
+          }}
+        />
+
+        {previewSnapshotId && (
+          <div style={{
+            position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)',
+            background: '#b45309', color: 'white', padding: '12px 24px', borderRadius: '30px',
+            display: 'flex', alignItems: 'center', gap: '16px', zIndex: 100, boxShadow: '0 10px 25px rgba(180,83,9,0.3)'
+          }}>
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ animation: 'pulse 2s infinite' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span style={{ fontSize: '13px', fontWeight: 600 }}>Time Travel Mode Active</span>
+            <button 
+              onClick={() => setPreviewSnapshotId(null)}
+              style={{ background: 'rgba(255,255,255,0.2)', border: 'none', padding: '6px 12px', borderRadius: '16px', color: 'white', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}
+            >
+              Exit
+            </button>
+          </div>
+        )}
       </main>
       <footer>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {activeFilePath && <span>{activeFilePath.split(/[\\/]/).pop()}</span>}
             <span>Engine: Tectonic</span>

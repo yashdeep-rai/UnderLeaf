@@ -16,11 +16,11 @@ Here's the full feature breakdown from the spec, ordered Phase 1.1 through the u
 - (MVP) Dual-mode preview (KaTeX + PDF.js): KaTeX for keystroke-speed inline math rendering; PDF.js for full-fidelity compiled output. Two layers, two purposes, zero redundancy.
 - (Novel) Inline KaTeX via CodeMirror decorations: AST identifies the specific math block under the cursor, KaTeX renders only that block inline above the line being edited. Feels like editing a live document, not source code.
 
-**Phase 1.5 — Error AI**
+<!-- **Phase 1.5 — Error AI**
 - (Novel) Ollama log-physician panel: On compile:error, the raw TeX log is sent to a local Ollama instance on a separate goroutine. Response streams into a dedicated panel with one-click fix application. Fully offline, no API key required. Addresses the #1 reason students quit LaTeX.
 
 **Phase 1.6 — Data Binding**
-- (Novel) Live CSV / JSON watcher: fsnotify watches bound data files. On change, re-generates the linked LaTeX table and triggers a recompile. LaTeX becomes the view layer for your data. Explicitly called out in the spec as the feature that defines the product's identity.
+- (Novel) Live CSV / JSON watcher: fsnotify watches bound data files. On change, re-generates the linked LaTeX table and triggers a recompile. LaTeX becomes the view layer for your data. Explicitly called out in the spec as the feature that defines the product's identity. -->
 
 ---
 
@@ -31,3 +31,4 @@ Here's the full feature breakdown from the spec, ordered Phase 1.1 through the u
 **Novel Features (unphased — differentiators)**
 - (Novel) Drag-and-drop asset pipeline: Drop any image into the editor. Backend moves it to /assets, converts to a TeX-compatible format, and injects a ready-to-use \begin{figure} block with a generated label.
 - (Expected) Automatic snapshot versioning / "Time Travel": Every successful compile snapshots the .tex source and output PDF. A Timeline sidebar lets you browse and restore any past version. No Git knowledge required. Always on, always local — Overleaf gates this behind a Pro plan.
+- (Novel) Magic Tables (WYSIWYG Spreadsheet Mode): LaTeX tables `\begin{tabular} ... & ... \\` are notoriously awful to write. UnderLeaf detects table blocks and offers to spawn a Notion-like mini spreadsheet directly over the source text. Users can easily add columns, type data, or drag edges to align, and UnderLeaf automatically translates the spreadsheet back into perfectly aligned raw LaTeX syntax behind the scenes.

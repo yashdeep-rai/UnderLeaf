@@ -6,6 +6,8 @@ import { tags as t } from '@lezer/highlight';
 import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { mathDecorationsPlugin } from '../extensions/mathPreview';
 import { latexAutocomplete } from '../extensions/latexAutocomplete';
+import { tableDecorationsPlugin, openTableEditorEffect } from '../extensions/tablePreview';
+import { MagicTableEditor } from './MagicTableEditor';
 import { SaveImageAsset } from '../../bindings/Underleaf/backend/project/service.js';
 
 // ─── Professional Underleaf Light Theme ────────────────────────────────────────
@@ -68,14 +70,27 @@ interface EditorProps {
   projectPath: string;
   activeFilePath: string;
   onAssetSaved?: () => void;
+  readOnly?: boolean;
 }
 
-export function Editor({ value, onChange, projectPath, activeFilePath, onAssetSaved }: EditorProps) {
+export function Editor({ value, onChange, projectPath, activeFilePath, onAssetSaved, readOnly }: EditorProps) {
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const lastPath = useRef(activeFilePath);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [dropStatus, setDropStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
   const [dropMsg, setDropMsg] = useState('');
+  const [editingTable, setEditingTable] = useState<{from: number, to: number, source: string} | null>(null);
+
+  // Listener to catch Magic Table edit requests from CodeMirror
+  const effectListener = useCallback(EditorView.updateListener.of((update) => {
+    for (const tr of update.transactions) {
+      for (const eff of tr.effects) {
+        if (eff.is(openTableEditorEffect)) {
+          setEditingTable(eff.value);
+        }
+      }
+    }
+  }), []);
 
   useEffect(() => {
     // Only force sync content when switching files
@@ -231,12 +246,15 @@ export function Editor({ value, onChange, projectPath, activeFilePath, onAssetSa
         height="100%"
         className="h-full w-full absolute inset-0"
         theme="light"
+        readOnly={readOnly}
         extensions={[
           latexLanguage,
           syntaxHighlighting(underleafHighlight),
           underleafTheme,
           EditorView.lineWrapping,
           mathDecorationsPlugin,
+          tableDecorationsPlugin,
+          effectListener,
           latexAutocomplete(() => projectPath),
         ]}
         onChange={(val) => {
@@ -277,6 +295,24 @@ export function Editor({ value, onChange, projectPath, activeFilePath, onAssetSa
           <p style={{ color: '#64748b', fontSize: '12px' }}>Saved to assets/ — a \\begin&#123;figure&#125; block will be inserted</p>
         </div>
       )}
+
+      {/* ─── Magic Table React Overlay ─────────────────────────── */}
+      {editingTable && (
+        <MagicTableEditor 
+          initialSource={editingTable.source} 
+          onCancel={() => setEditingTable(null)} 
+          onSave={(newSource) => {
+            const view = editorRef.current?.view;
+            if (view) {
+              view.dispatch({
+                changes: { from: editingTable.from, to: editingTable.to, insert: newSource }
+              });
+            }
+            setEditingTable(null);
+          }} 
+        />
+      )}
+
 
       {/* ─── Upload Status Toast ────────────────────────────────── */}
       {dropStatus !== 'idle' && (
