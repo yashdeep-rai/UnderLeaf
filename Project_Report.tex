@@ -9,13 +9,14 @@
 \usepackage{enumitem}
 \usepackage{xcolor}
 \usepackage{tabularx}
+\usepackage{parskip}
+\usepackage{microtype}
 
-\title{\textbf{UnderLeaf Project Report} \\ \Large A Local-First, Zero-Friction \LaTeX\ IDE}
+\title{\textbf{UnderLeaf} \\ \LARGE A Local-First, Zero-Friction \LaTeX\ Integrated Development Environment}
 \author{
-  Group Members: \\
-  Yashdeep (123CS0077) \\
-  Ayush Rewenshete (523CS0020) \\
-  Vishal Kumar (123AD0052) \\
+  Yashdeep (123CS0077) \quad
+  Ayush Rewenshete (523CS0020) \\[4pt]
+  Vishal Kumar (123AD0052) \quad
   Chaitanya Jambhulkar (123AD0045)
 }
 \date{\today}
@@ -23,103 +24,264 @@
 \begin{document}
 
 \maketitle
+\thispagestyle{empty}
 
+\begin{abstract}
+UnderLeaf is a modern, zero-configuration \LaTeX\ Integrated Development Environment (IDE) built using a locally bundled Tectonic compilation engine and a Wails-based native desktop shell. Its core thesis is that a \LaTeX\ document is the \textbf{frontend for your research} — it should behave like a live, reactive interface rather than a passive source file. By embedding a complete compiler, a real-time math renderer, a visual table editor, and an automatic version-history system into a single standalone binary, UnderLeaf removes every barrier between a researcher and a compiled PDF while remaining entirely offline and requiring zero prior \LaTeX\ toolchain knowledge.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Product Specification}
-UnderLeaf completely decouples the user from traditional massive \TeX\ installations by shipping a fully self-contained compiler stack and a modern interface explicitly designed for rapid iteration.
+% ─────────────────────────────────────────────────────────────────────────────
 
-\subsection*{Technology Stack \& Tools Utilized}
-\begin{description}
-    \item[App Framework (Wails v3):] Creates a native desktop binary cleanly paired with a web frontend, entirely bypassing the heavy memory overhead of Electron.
-    \item[\TeX\ Engine (Tectonic):] A single bundled Rust binary compiler that automatically fetches and caches missing scientific packages entirely on demand.
-    \item[Frontend (React + Vite):] A blazing-fast UI framework guaranteeing minimal runtime overhead and instantaneous reactivity for the interface.
-    \item[Editor Core (CodeMirror 6):] Selected for its modular architecture and advanced Decoration API, which is strictly required to inject Ghost Previews correctly over text.
-    \item[AST Parser (Go Participle):] Integrates natively with the Go backend to construct dynamic Abstract Syntax Trees directly from \LaTeX\ text streams.
-    \item[Math Preview (KaTeX):] Renders mathematical Ghost Previews at sub-millisecond speeds natively inline, without requiring a server round-trip.
-    \item[PDF Rendering (PDF.js):] A battle-tested PDF renderer explicitly driving the visual compilation targets on the live split-pane logic.
-\end{description}
+\subsection{Purpose and Scope}
 
-\subsection*{System Architecture \& Data Flow}
-The UnderLeaf live compilation architecture tightly runs a unified five-step cycle systematically driven by a debounced event loop:
+UnderLeaf was designed to serve undergraduate and postgraduate students, academic researchers, and data scientists who rely on \LaTeX\ to produce high-quality scientific documents. The application targets three concrete pain points:
+
 \begin{enumerate}
-    \item \textbf{File Change (500ms debounce):} The user pauses typing in the editor, and CodeMirror automatically triggers an update payload.
-    \item \textbf{Incremental Parse:} The Go backend seamlessly evaluates the file delta and updates the internal AST natively.
-    \item \textbf{Tectonic Call:} Wails fetches any missing packages required by the AST and safely invokes the local Tectonic engine.
-    \item \textbf{Signal Emission:} Wails formally emits a \texttt{compile:success} event across the IPC bridge to the frontend boundary.
-    \item \textbf{Interface Refresh:} The split-pane PDF.js viewer smoothly reloads from the new blob URL output buffer, while all interactive Ghost Previews organically update.
+    \item \textbf{The Installation Problem.} Standard \LaTeX\ distributions (\texttt{TeX Live}, \texttt{MiKTeX}) require multi-gigabyte installations on the host system, weeks of environment debugging, and manual PATH configuration before a single document can be compiled.
+    \item \textbf{The Feedback Loop Problem.} Conventional editors provide no real-time visual feedback. Compilation is a manual, batched step with cryptic log output when it fails.
+    \item \textbf{The Workflow Problem.} Inserting images, constructing complex tables, managing version history, and navigating large documents all require the user to leave their editor and operate other tools.
 \end{enumerate}
 
-\subsection*{Performance Targets}
+UnderLeaf addresses these three problems without adding external dependencies, requiring a network connection, or charging subscription fees.
+
+\subsection{Technology Stack}
+
+UnderLeaf is built across two logically distinct layers — a Go backend and a React frontend — bridged by the Wails v3 framework.
+
+\begin{description}[style=nextline, leftmargin=2cm]
+    \item[\texttt{Wails v3} (App Framework)]
+    Wails generates a single native executable that bundles both a Go runtime and a Chromium-derived WebView. It exposes a clean Remote Procedure Call (RPC) interface between the Go backend and the TypeScript frontend, with zero Electron overhead. When a Go function is annotated with a Wails binding, the framework automatically generates matching TypeScript call stubs through a code-generation step (\texttt{wails3 generate bindings}).
+
+    \item[\texttt{Tectonic} (Compilation Engine)]
+    Tectonic is a modern, Rust-based \LaTeX\ compiler that functions as a self-contained binary. Unlike \texttt{TeX Live}, it automatically downloads only the packages strictly required by the document from a remote CTAN mirror and caches them locally. Subsequent compilations use the local cache only, making them fully offline after the initial package resolution phase. UnderLeaf shells out to Tectonic over \texttt{os/exec} from the Go backend.
+
+    \item[\texttt{React + Vite} (Frontend UI)]
+    The user interface is built in React (TypeScript) with Vite as the module bundler. React's component model allows the split-pane editor and viewer to be independently stateful, so a PDF viewer update triggered by a compile event never causes the editor to remount or lose cursor position.
+
+    \item[\texttt{CodeMirror 6} (Editor Core)]
+    CodeMirror 6 is the basis of the source-code editor. Version 6 was chosen specifically because its Decoration API allows arbitrary DOM elements to be injected inline between lines of text — the mechanism that powers Ghost Previews and Magic Tables. The editor also provides a built-in StateEffect and StateField system that allows CodeMirror extensions to communicate safely with React state without direct DOM manipulation.
+
+    \item[\texttt{Go Participle} (AST Parser)]
+    Go Participle is a parser-combinator library that allows grammar rules to be defined using Go struct tags. UnderLeaf uses it to construct an Abstract Syntax Tree (AST) from the active \texttt{.tex} file, identifying all math environments (\texttt{\$...\$}, \texttt{\$\$...\$\$}, \texttt{\\begin\{equation\}}), section labels, and citation keys in real time.
+
+    \item[\texttt{KaTeX} (Inline Math Renderer)]
+    KaTeX renders mathematical expressions in the browser at sub-millisecond latency without a network round-trip. It is used inside CodeMirror Decoration widgets to render the Ghost Preview overlays above math-containing source lines.
+
+    \item[\texttt{PDF.js} (PDF Viewer)]
+    PDF.js, developed by Mozilla, renders the compiled PDF output inside the right-hand pane. The output of each successful Tectonic compilation run is streamed from Go as a Base64 blob, converted to a Blob URL in the browser, and handed to PDF.js for display.
+\end{description}
+
+\subsection{System Architecture and Data Flow}
+
+The internal architecture of UnderLeaf separates concerns across three distinct planes:
+
+\textbf{1. The Compilation Plane (Go backend).} 
+The Go backend owns the file system, the Tectonic subprocess, and the snapshot store. It exposes Wails-bound RPC methods for reading and writing \texttt{.tex} source, triggering compilation, listing project files, saving snapshots, and managing project metadata.
+
+\textbf{2. The Intelligence Plane (Go backend $\leftrightarrow$ React frontend).}
+The Go Participle AST parser runs incrementally on every save event. It extracts math environments, section boundaries, \texttt{\\label\{\}} targets, and \texttt{\\cite\{\}} keys, then packages the result as a JSON payload that is forwarded to the frontend over Wails's event bus.
+
+\textbf{3. The Presentation Plane (React frontend).}
+The React application manages the split-pane layout, the CodeMirror editor instance, the PDF viewer, the file explorer sidebar, the timeline sidebar, and all modal overlays. It is the sole layer responsible for input and output rendering.
+
+The end-to-end live compilation cycle flows as follows:
+\begin{enumerate}[noitemsep]
+    \item User edits text inside the CodeMirror editor.
+    \item The \texttt{onChange} callback debounces for 500\,ms, then calls \texttt{SaveFile} over the Wails IPC bridge.
+    \item The Go backend writes the file to disk and immediately invokes \texttt{Tectonic}.
+    \item On success, the Go backend reads the output \texttt{.pdf} file, Base64-encodes it, signals \texttt{compile:success} to the frontend, and writes a time-stamped snapshot entry to disk.
+    \item The React frontend converts the Base64 payload to a Blob URL and refreshes the PDF.js viewer without a full page reload. All CodeMirror math decorations are re-evaluated against the updated AST.
+\end{enumerate}
+
+\subsection{Performance Characteristics}
+The application is designed to the following performance contract:
+
 \begin{itemize}[noitemsep]
-    \item Guaranteed \textbf{$<100\text{ms}$} AST Preview Latency bounding editor input.
-    \item Contained within a \textbf{$<100\text{MB}$} standalone distribution binary (excluding local package caches).
+    \item \textbf{$<$100\,ms} inline KaTeX render latency for math Ghost Previews.
+    \item \textbf{$<$100\,MB} binary size (excluding the Tectonic package cache).
+    \item \textbf{Zero-config} path to first successful compile on a clean machine.
+    \item \textbf{Single standalone binary} as the complete distribution artifact.
 \end{itemize}
 
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Usefulness of the Product}
-Writing complex scientific or mathematical papers is severely hindered by archaic \LaTeX\ workflows. The standard setup demands gigabytes of \texttt{TeX Live} installations, frustrating PATH adjustments, and fractured text editors. 
+% ─────────────────────────────────────────────────────────────────────────────
 
-UnderLeaf radically solves this. A researcher can open UnderLeaf on a fresh computer without any pre-requisite installations, type their code, and instantaneously see the compiled PDF. It absolutely eliminates setup barriers, permanently respects data privacy via strict offline local operation, and intuitively bridges the gap between raw code and visual feedback.
+\subsection{The Problem \LaTeX\ Editors Have Not Solved}
 
+\LaTeX\ is the de facto standard for producing scientific publications, theses, and technical reports. Despite its typographic superiority, it has an extraordinarily high barrier to entry that discourages adoption:
+
+\begin{itemize}
+    \item A default \texttt{TeX Live} installation is approximately 4\,GB. A first-time user on Windows must navigate multiple installers before typing a single character of source.
+    \item Error messages produced by the \TeX\ engine are notoriously cryptic (e.g., \texttt{! Undefined control sequence. l.23 \textbackslash sectiom}). New users have no mechanism to diagnose or fix these without significant experience.
+    \item Writing a table with more than three columns in raw \LaTeX\ is a mechanical, error-prone process. A simple four-column table requires the author to correctly align 16 or more \texttt{\&} characters and maintain consistent column widths manually.
+    \item Inserting an image requires knowing the relative path to the asset, issuing a \texttt{\\usepackage\{graphicx\}} directive, and constructing a \texttt{figure} environment by hand. Resizing the image requires trial-and-error compilation cycles.
+    \item There is no built-in version history. A researcher working on a 30-page thesis has no native mechanism to revert a destructive edit without using Git — a tool with its own steep learning curve.
+\end{itemize}
+
+UnderLeaf treats each of these items as a first-class product problem, not a user education problem.
+
+\subsection{Who Benefits and Why}
+
+\textbf{Undergraduate and Postgraduate Students:} Students writing theses and lab reports gain a zero-setup environment. They do not need to configure a \TeX\ distribution or understand the difference between \texttt{pdflatex} and \texttt{xelatex}. UnderLeaf presents a single ``Compile'' button with no surrounding complexity.
+
+\textbf{Academic Researchers and Authors:} Researchers who write papers for conference or journal submission benefit from the Ghost Preview system, which allows them to immediately see whether a mathematical expression typeset correctly without waiting for a full compilation. The Time Travel versioning system protects experimental edits during late-night revision cycles.
+
+\textbf{Collaborative Documents:} Because UnderLeaf stores projects as plain \texttt{.tex} files on disk and does not lock content into a proprietary cloud format, projects remain fully compatible with upstream tools. A user can open their project in TeXstudio or push it to Overleaf at any time.
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Availability of Similar Products in the Market}
-There are three primary alternatives serving the market: Overleaf, TeXstudio, and VS Code. UnderLeaf fundamentally outperforms them in zero-friction offline usability:
+% ─────────────────────────────────────────────────────────────────────────────
 
-\vspace{1em}
+\subsection{Existing Solutions}
+
+Three primary products compete in the \LaTeX\ IDE space:
+
+\textbf{Overleaf} is a browser-based \LaTeX\ editor backed by a cloud compilation server. Its primary advantage is frictionless setup — a user can write and compile a document from any web browser with zero local installation. However, Overleaf has significant structural drawbacks: it requires a persistent internet connection for every compilation; all source code and documents are hosted on Overleaf's servers (raising privacy concerns for unreleased academic work and intellectual property); and its most useful feature for serious users — ``Track Changes'' and full project history — is locked behind a Pro or Team subscription starting at \$19/month.
+
+\textbf{TeXstudio / TeXmaker} are native desktop IDEs with deep feature sets. They are fully offline and have strong autocomplete and bibliography management. Their critical weakness is that they are purely editors: they have no bundled compiler. The user must independently install a \TeX\ distribution (\texttt{TeX Live} on Linux/macOS, \texttt{MiKTeX} on Windows), configure the PATH, select a compilation engine, and wire it to the editor through a preferences dialog.
+
+\textbf{VS Code + LaTeX Workshop} is a widely used combination among developer-academics who are already fluent in VS Code. The LaTeX Workshop extension provides syntax highlighting, auto-build, and SyncTeX support. However, setup complexity is high: the \texttt{.json} configuration required to specify the compiler chain is non-trivial, and the target user is implicitly a programmer, not a domain scientist.
+
+\subsection{Comparative Feature Matrix}
+
+\vspace{0.5em}
 \noindent
-\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\centering\arraybackslash}p{2.1cm}|>{\centering\arraybackslash}p{2.1cm}|>{\centering\arraybackslash}p{2.1cm}|}
 \hline
 \textbf{Capability} & \textbf{TeXstudio} & \textbf{Overleaf} & \textbf{UnderLeaf} \\
 \hline
-\textbf{Setup}          & Manual TeX Live    & Web (No install)  & \textbf{Zero-config binary} \\
+Zero-setup on clean machine          & \textcolor{red}{\texttimes} & \textcolor{green!60!black}{\checkmark} & \textcolor{green!60!black}{\checkmark} \\
 \hline
-\textbf{Math Preview}   & Split-screen only  & Split-screen only & \textbf{Inline Ghost Previews} \\
+Fully offline                        & \textcolor{green!60!black}{\checkmark} & \textcolor{red}{\texttimes} & \textcolor{green!60!black}{\checkmark} \\
 \hline
-\textbf{Image Handling} & Manual copy+code   & Upload+code       & \textbf{Drag-drop + auto-inject} \\
+Inline math preview (Ghost Previews) & \textcolor{red}{\texttimes} & \textcolor{red}{\texttimes} & \textcolor{green!60!black}{\checkmark} \\
 \hline
-\textbf{Version History}& None               & Pro plan only     & \textbf{Always-on local shots} \\
+Visual table editor                  & \textcolor{red}{\texttimes} & \textcolor{red}{\texttimes} & \textcolor{green!60!black}{\checkmark} \\
 \hline
-\textbf{Offline Use}    & Full               & None              & \textbf{Full} \\
+Automatic version history            & \textcolor{red}{\texttimes} & Pro only         & \textcolor{green!60!black}{\checkmark} \\
+\hline
+Drag-and-drop image insertion        & \textcolor{red}{\texttimes} & \textcolor{red}{\texttimes} & \textcolor{green!60!black}{\checkmark} \\
+\hline
+Source privacy (data stays local)    & \textcolor{green!60!black}{\checkmark} & \textcolor{red}{\texttimes} & \textcolor{green!60!black}{\checkmark} \\
+\hline
+Context-aware citation autocomplete  & Partial            & Partial          & \textcolor{green!60!black}{\checkmark} \\
 \hline
 \end{tabularx}
-\vspace{1em}
+\vspace{0.5em}
 
+\subsection{The Gap UnderLeaf Fills}
+
+No existing product on the market simultaneously satisfies all four of: zero local setup, fully offline operation, real-time visual feedback, and automatic version history. Overleaf solves setup and versioning but requires a paid subscription and live internet. TeXstudio solves offline use but pushes all setup burden onto the user. UnderLeaf is the only solution that satisfies all four constraints without a subscription and without an internet connection.
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{What is Novel/New in Your Product}
-UnderLeaf pushes past conventional IDE paradigms with capabilities defined exclusively through our original interactive feature pipeline:
+% ─────────────────────────────────────────────────────────────────────────────
 
-\subsection*{Ghost Previews (Interactive Math)}
-UnderLeaf parses the document via an AST and renders complex math formulas directly above the source code using KaTeX. Place your cursor near the following Field Equation to watch it expand and collapse dynamically!
+UnderLeaf introduces five distinct features that do not collectively exist in any current \LaTeX\ IDE. Each is described below with its individual technical implementation approach.
 
-$$ R_{\mu \nu} - \frac{1}{2} R g_{\mu \nu} + \Lambda g_{\mu \nu} = \frac{8 \pi G}{c^4} T_{\mu \nu} $$
+\subsection{Ghost Previews (Inline Math Rendering)}
 
-\subsection*{Magic Tables (Visual Spreadsheet Editor)}
-Click the \textbf{🪄 Edit Table} wand above the block below to launch our custom GUI spreadsheet, radically simplifying one of \LaTeX's most notoriously difficult tabular syntaxes!
+Ghost Previews are a custom CodeMirror 6 extension that uses the editor's Decoration API to render compiled mathematical expressions \emph{inline above the source line} where the cursor currently rests. When the cursor leaves a math block, the decoration expands to show the rendered KaTeX output without altering the underlying source text.
+
+\textbf{Technical Implementation:} A \texttt{ViewPlugin} scans the visible CodeMirror document using the Go Participle AST payload to identify math delimiter positions. For each math block that is \emph{not} currently being edited, a \texttt{WidgetType} decoration is injected at the block's opening position. The widget renders KaTeX inside a \texttt{<div>} inserted into the CodeMirror gutter. Because decorations are computed from a StateField, they automatically update on every transaction without requiring manual DOM management.
+
+The result is that the document \emph{feels like a rendered article} while being edited — mathematical symbols appear natively above \LaTeX\ control sequences rather than only after a full compile-and-reload cycle.
+
+$$ \nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}, \qquad \nabla \times \mathbf{B} = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t} $$
+
+\subsection{Magic Tables (WYSIWYG Spreadsheet Editor)}
+
+Writing \LaTeX\ tables with raw \texttt{\&} cell separators and \texttt{\\\\} row terminators is one of the most commonly cited sources of frustration in documents produced by students and researchers. A correctly formatted three-column, five-row table with borders requires at least 25 precisely placed control characters, any single error in which causes the entire compile to fail.
+
+UnderLeaf introduces Magic Tables: a WYSIWYG (What You See Is What You Get) visual spreadsheet interface that launches as a React modal overlay when the user clicks the \textbf{🪄 Edit Table} wand widget injected above any \texttt{\\begin\{tabular\}} block.
+
+\textbf{Technical Implementation:} A \texttt{ViewPlugin} (separate from the Ghost Previews plugin) scans the visible code for regex matches against \texttt{\\begin\{tabular\}\ldots\\end\{tabular\}}. For each match, it injects a lightweight \texttt{WidgetType} button. Clicking the button dispatches a custom \texttt{StateEffect} into the CodeMirror state machine, carrying the exact character offsets (\texttt{from}, \texttt{to}) and the raw source substring.
+
+An \texttt{updateListener} extension captures this effect and lifts the payload into React state, opening the \texttt{MagicTableEditor} modal. The modal:
+\begin{itemize}[noitemsep]
+    \item Parses the column alignment specification (e.g., \texttt{|l|c|r|}) from the \texttt{\\begin\{tabular\}} argument.
+    \item Splits the body on \texttt{\\\\} to extract rows, then splits each row on \texttt{\&} to extract cells.
+    \item Renders a live HTML \texttt{<table>} with \texttt{<input>} cells for each parsed data point.
+    \item Provides ``Add Row'' and ``Add Column'' controls that dynamically extend the grid.
+    \item On save, determines the maximum character width of each column and pads every cell value with trailing spaces to produce beautifully aligned source code.
+\end{itemize}
+
+The resulting \LaTeX\ is dispatched back into CodeMirror using a \texttt{view.dispatch(\{ changes: \{ from, to, insert: newSource \} \})} transaction, atomically replacing the old table block.
 
 \vspace{1em}
 \begin{center}
 \begin{tabular}{|l|c|r|}
 \hline
-  Quarter    & Metric                   & Revenue ($\$$) \\
+Quarter    & Metric                   & Revenue (\$) \\
 \hline
-  Q1 2026    & Initial Launch           & 15,000         \\
-  Q2 2026    & Feature Update           & 22,500         \\
+Q1 2026    & Initial Launch           & 15,000       \\
+Q2 2026    & Feature Update           & 22,500       \\
+Q3 2026    & Enterprise Rollout       & 89,000       \\
 \hline
 \end{tabular}
 \end{center}
 \vspace{1em}
 
-\subsection*{Workflow Tooling}
-\begin{itemize}[noitemsep]
-    \item \textbf{Local "Time Travel" Snapshots:} Automatic, granular document version control snapshotting the exact PDF and `.tex` source securely locally without ever touching Git. 
-    \item \textbf{Drag-and-Drop Assets:} Dropping an image securely shifts it to the local \texttt{/assets} folder and injects the \texttt{\textbackslash begin\{figure\}} code instantly.
-    \item \textbf{Command Palette \& LSP:} A massive productivity booster allowing users to hit Cmd+K to jump to sections, insert code snippets, and securely autocomplete \texttt{\textbackslash cite} metadata and targets autonomously.
-\end{itemize}
+\subsection{Local Time Travel Snapshots}
 
+UnderLeaf implements an automatic, always-on version history system called Time Travel. On every successful Tectonic compilation, the Go backend writes a timestamped snapshot containing (a) the full \texttt{.tex} source and (b) the compiled PDF binary to a hidden \texttt{.underleaf/snapshots/} directory inside the project folder.
+
+\textbf{Technical Implementation:} The \texttt{SnapshotService} in \texttt{backend/project/snapshot.go} exposes the following Wails-bound methods: \texttt{CreateSnapshot}, \texttt{ListSnapshots}, \texttt{GetSnapshot}, and \texttt{RestoreSnapshot}. Each snapshot is stored as a numbered JSON manifest alongside raw binary files. The \texttt{TimelineSidebar} React component calls \texttt{ListSnapshots} to build a chronological list of save points, renders each snapshot with its timestamp, and displays a thumbnail of the compiled PDF.
+
+When a user selects a historical snapshot, the editor enters a read-only preview mode showing the historical source code side-by-side with the historical PDF. A floating restore banner allows the user to atomically overwrite the current working files with the snapshot contents.
+
+This feature provides all the essential benefits of Git version control with none of the complexity: no \texttt{commits}, \texttt{branches}, or \texttt{conflict files}. It is always on, always local, and requires no user action to benefit from.
+
+\subsection{Drag-and-Drop Asset Pipeline}
+
+Inserting an image into a \LaTeX\ document requires knowing the precise relative path to the image file, ensuring \texttt{\\usepackage\{graphicx\}} has been declared in the preamble, and writing a \texttt{figure} environment with correct width and label attributes. UnderLeaf collapses this entire workflow into a single physical gesture.
+
+\textbf{Technical Implementation:} The \texttt{Editor.tsx} component wraps CodeMirror in a \texttt{<div>} with \texttt{onDragEnter}, \texttt{onDragOver}, \texttt{onDragLeave}, and \texttt{onDrop} event handlers. When a \texttt{dragenter} event with a \texttt{Files} data transfer item is detected, a full-screen visual overlay appears over the editor with a drop-zone indicator. On drop, the file is read as a Base64 string in the browser, then passed across the Wails bridge to the \texttt{SaveImageAsset} Go function, which saves it to \texttt{/assets/<filename>} within the project directory. The Go function returns the path relative to the project root.
+
+Back in the browser, the editor then automatically checks whether \texttt{\\usepackage\{graphicx\}} exists in the document and injects it if absent, then inserts a complete \texttt{\\begin\{figure\}} block at the current cursor position, referencing the saved asset path.
+
+\subsection{Context-Aware LSP Autocomplete}
+
+UnderLeaf provides an intelligent autocomplete layer for \LaTeX\ commands that is aware of the actual content of your project files, not just generic \LaTeX\ syntax.
+
+\textbf{Technical Implementation:} A custom CodeMirror 6 \texttt{autocompletion} extension parses the \texttt{.bib} bibliography files in the project directory to extract all citation keys and author fields. When the user types \texttt{\\cite\{}, the completion list is populated with actual entries from their bibliography. Similarly, all \texttt{\\label\{...\}} tags in the \texttt{.tex} file are indexed, making \texttt{\\ref\{} and \texttt{\\pageref\{} completions context-aware to the document's own cross-references.
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Individual Contribution of Each Member of the Group}
-The project architecture required intense, highly optimized execution across network interfaces, concurrent logic loops, UI elements, and parsers:
+% ─────────────────────────────────────────────────────────────────────────────
 
-\begin{description}
-    \item[Yashdeep (123CS0077) -- Native Systems \& OS Bridge:] Solely owned the architecture and deployment of the Wails backend framework. They managed the bidirectional IPC event bus seamlessly linking Go with React, successfully achieving the difficult latency targets by bounding the React states to Go without blocking concurrency loops.
-    \item[Ayush Rewenshete (523CS0020) -- Frontend \& Visual Tools:] Completely architected the React interface and the complex split-pane UI scaling. They developed the custom CodeMirror 6 plugins required to inject UI widgets natively into text streams, seamlessly binding the \textit{Magic Tables} WYSIWYG spreadsheet integration over LaTeX structural code.
-    \item[Vishal Kumar (123AD0052) -- Version Control \& Assets:] Engineered the heavily optimized filesystem logic driving the local \textit{Time Travel} storage arrays and frontend Timeline. They constructed highly redundant, optimized local storage snapshots to ensure 100\% state safety with zero Git dependencies, along with native Drag-and-Drop deployment tools.
-    \item[Chaitanya Jambhulkar (123AD0045) -- Parsers \& Base Compilers:] Managed the Zero-config Tectonic CLI integration loops and led the development of the Go Participle AST parsers driving Context-Aware LSP algorithms. They engineered the intricate tokenization engine tracking mathematical delimiters for \textit{Ghost Previews}, mitigating KaTeX flickering through localized debounced synchronization cycles.
-\end{description}
+\subsection{Yashdeep (123CS0077) — Native Systems \& OS Bridge}
+
+Yashdeep was responsible for the foundational systems layer of UnderLeaf. This included bootstrapping the entire Wails v3 project, configuring the \texttt{Taskfile.yml} build pipeline, and structuring the Go module hierarchy. He built the Go compilation service (\texttt{CompileService}), which wraps the Tectonic subprocess call, manages the output artifact paths, streams compile logs back to the frontend via Wails events, and handles error-state propagation cleanly without blocking the UI goroutine.
+
+He also engineered the bidirectional IPC event bus that synchronizes React state with Go service state. This required careful use of Go's \texttt{sync.Mutex} primitives to prevent race conditions when the compilation goroutine, file-watcher goroutine, and Wails RPC call goroutine attempt to access shared project state concurrently. The IPC bridge successfully meets the $<100$\,ms latency target across all tested project sizes.
+
+\subsection{Ayush Rewenshete (523CS0020) — Frontend Architecture \& Magic Tables}
+
+Ayush owned the complete React frontend architecture. This included the primary \texttt{App.tsx} state machine (managing project selection, file loading, compilation lifecycle, snapshot mode, and log visibility), the split-pane layout with a resizable divider, and the \texttt{FileExplorer} sidebar with its new-file dialog and folder tree rendering.
+
+His most technically complex contribution was the \texttt{MagicTableEditor} component and its accompanying \texttt{tablePreview.ts} CodeMirror extension. Overcoming several CodeMirror v6 edge cases — including \texttt{RangeSet} out-of-order insertion errors, focus-loss conflicts between the modal and the editor, and serialization alignment algorithms for padded cell output — required deep familiarity with the CodeMirror 6 internal state model and its dispatch transaction system.
+
+\subsection{Vishal Kumar (123AD0052) — Version Control \& Asset Management}
+
+Vishal owned the Time Travel snapshot system and the Drag-and-Drop image asset pipeline end to end.
+
+The snapshot system required designing a reliable, collision-safe file format for the \texttt{.underleaf/snapshots/} directory, implementing idempotent read/write operations under concurrent access, and building the \texttt{TimelineSidebar} React component with its read-only editor preview mode and floating restore banner. The \texttt{Editor.tsx} component was extended with a \texttt{readOnly} prop wired through \texttt{App.tsx}, so historical source code is safely displayed without being editable.
+
+The Drag-and-Drop pipeline required coordinating three distinct subsystems: the browser File API (for reading the file into Base64), the Wails Go bridge (for writing to disk), and the CodeMirror API (for inserting the generated figure block at the cursor). Vishal engineered the \texttt{SaveImageAsset} Go function and the \texttt{insertAtCursor} helper in the editor component necessary to complete this pipeline reliably.
+
+\subsection{Chaitanya Jambhulkar (123AD0045) — Compiler Integration \& AST Parsing}
+
+Chaitanya was responsible for integrating the Tectonic engine as an embedded binary dependency and building the Go Participle AST parsing layer that drives Ghost Previews and context-aware LSP completions.
+
+The Tectonic integration required handling platform-specific binary resolution (the Tectonic binary path differs on Windows, macOS, and Linux), constructing the correct subprocess argument vector including output directory flags, parsing the Tectonic log format to extract structured error metadata, and implementing a clean fallback mechanism for missing-package scenarios where the compiler must be re-invoked after a package download.
+
+The Go Participle grammar encodes rules for identifying all math environments (\texttt{\$...\$}, \texttt{\$\$...\$\$}, \texttt{align}, \texttt{equation}), section commands, \texttt{\\label\{\}} and \texttt{\\cite\{\}} invocations, and the custom \texttt{@bind} tag. This AST is serialised to JSON and forwarded to the \texttt{mathPreview.ts} CodeMirror extension, which coordinates rendering KaTeX widgets into the editor using the Decoration API. Mitigating KaTeX rendering artifacts required careful debouncing of AST updates against CodeMirror viewport events to avoid flickering during rapid keystrokes.
 
 \end{document}

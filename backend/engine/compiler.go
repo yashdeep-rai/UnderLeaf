@@ -79,6 +79,7 @@ func (s *CompilerService) Compile(activeFilePath string) (*CompileResult, error)
 		"-o", tempDir,
 		activeFilePath,
 	)
+	hideWindow(cmd)
 	cmd.Dir = filepath.Dir(activeFilePath)
 	cmd.Env = os.Environ()
 
