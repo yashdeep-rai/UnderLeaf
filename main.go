@@ -2,10 +2,7 @@ package main
 
 import (
 	"embed"
-	_ "embed"
 	"log"
-	"os"
-	"path/filepath"
 
 	"Underleaf/backend/ai"
 	"Underleaf/backend/ast"
@@ -25,19 +22,18 @@ func init() {
 func main() {
 	HideTerminal()
 	
-	// Resolve tectonic sidecar path relative to the running executable.
-	// os.Executable() gives us the real binary location whether in dev (bin/) or packaged.
-	exePath, err := os.Executable()
+	// Extract the embedded tectonic binary to %LOCALAPPDATA%\UnderLeaf\tectonic.exe.
+	// On subsequent launches this is a fast no-op (sha256 sentinel check).
+	tectonicPath, err := engine.ExtractTectonic(embeddedTectonic)
 	if err != nil {
-		log.Fatal("cannot resolve executable path:", err)
+		log.Printf("warning: could not extract embedded tectonic: %v (will try system PATH)", err)
 	}
-	sidecarPath := filepath.Join(filepath.Dir(exePath), "tectonic.exe")
 
 	app := application.New(application.Options{
 		Name:        "Underleaf",
 		Description: "A LaTeX IDE built with Wails and React",
 		Services: []application.Service{
-			application.NewService(engine.NewCompilerService(sidecarPath)),
+			application.NewService(engine.NewCompilerService(tectonicPath)),
 			application.NewService(project.NewProjectService()),
 			application.NewService(project.NewSnapshotService()),
 			application.NewService(ast.NewASTService()),

@@ -8,6 +8,7 @@ import { useCompiler } from './hooks/useCompiler';
 import { useContextMenu } from './components/ContextMenu';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { TimelineSidebar } from './components/TimelineSidebar';
+import Logo from './logo.svg?url';
 import { ReadFile, SaveFile, ImportFile, ImportZip } from '../bindings/Underleaf/backend/project/service.js';
 import { GetSnapshotData } from '../bindings/Underleaf/backend/project/snapshotservice.js';
 import { ClearCache } from '../bindings/Underleaf/backend/engine/compilerservice.js';
@@ -213,7 +214,10 @@ export default function App() {
       <EditorContextMenu />
       <nav>
           <div className="nav-left">
-              <div className="logo">underleaf</div>
+              <div className="logo">
+                <img src={Logo} alt="Underleaf logo" style={{ width: '22px', height: '22px', flexShrink: 0 }} />
+                underleaf
+              </div>
               {projectName && (
                 <span style={{
                   fontSize: '12px', fontWeight: 600, color: '#64748b',

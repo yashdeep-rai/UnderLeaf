@@ -28,12 +28,16 @@ func NewCompilerService(tectonicPath string) *CompilerService {
 	return &CompilerService{tectonicPath: tectonicPath}
 }
 
-// resolveTectonic returns the tectonic binary path, preferring the sidecar.
+// resolveTectonic returns the tectonic binary path.
+// It prefers the extracted/sidecar path set at startup, then falls back to
+// any system-installed tectonic on $PATH.
 func (s *CompilerService) resolveTectonic() string {
-	if _, err := os.Stat(s.tectonicPath); err == nil {
-		return s.tectonicPath
+	if s.tectonicPath != "" {
+		if _, err := os.Stat(s.tectonicPath); err == nil {
+			return s.tectonicPath
+		}
 	}
-	if p, err := exec.LookPath("tectonic"); err == nil {
+	if p := lookupSystemTectonic(); p != "" {
 		return p
 	}
 	return ""
