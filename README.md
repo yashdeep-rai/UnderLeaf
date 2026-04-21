@@ -6,7 +6,7 @@
 
 **A professional, offline-first LaTeX IDE for Windows — built with Go + React.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%20License%202.0-blue)](LICENSE)
 [![Built with Wails](https://img.shields.io/badge/Built%20with-Wails%20v3-blue)](https://v3.wails.io/)
 [![Powered by Tectonic](https://img.shields.io/badge/Engine-Tectonic-orange)](https://tectonic-typesetting.github.io/)
 [![React](https://img.shields.io/badge/Frontend-React%2018-61dafb)](https://react.dev/)
