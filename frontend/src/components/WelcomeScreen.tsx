@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ValidateProject, CreateBlankProject, SetCurrentProject, PickDirectory, GetProjects, SaveProject, DeleteProject, ImportProjectFromZip } from '../../bindings/Underleaf/backend/project/service.js';
 import { ProjectRecord } from '../../bindings/Underleaf/backend/project/models.js';
+import Logo from '../logo.svg?url';
+import * as WailsRuntime from '@wailsio/runtime';
 
 interface WelcomeScreenProps {
   onProjectSet: (path: string) => void;
@@ -178,6 +180,11 @@ export function WelcomeScreen({ onProjectSet }: WelcomeScreenProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showImportZipDialog, setShowImportZipDialog] = useState(false);
 
+  const wailsWin = (WailsRuntime as any).Window;
+  const handleWinMinimise = () => wailsWin?.Minimise?.();
+  const handleWinMaximise = () => wailsWin?.ToggleMaximise?.();
+  const handleWinClose    = () => wailsWin?.Close?.();
+
   useEffect(() => { loadProjects(); }, []);
 
   const loadProjects = async () => {
@@ -209,7 +216,7 @@ export function WelcomeScreen({ onProjectSet }: WelcomeScreenProps) {
     try {
       const path = await PickDirectory("Select LaTeX Project Folder");
       if (!path) return;
-      const name = path.split(/[\\/]/).filter(Boolean).pop() || "Project";
+      const name = path.split(/[\\\/]/).filter(Boolean).pop() || "Project";
       await SaveProject(name, path);
       await loadProjects();
       openProject(path);
@@ -257,7 +264,7 @@ export function WelcomeScreen({ onProjectSet }: WelcomeScreenProps) {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', background: '#f8fafc', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: '#f8fafc', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {showCreateDialog && (
         <CreateProjectDialog onConfirm={handleCreateConfirm} onCancel={() => setShowCreateDialog(false)} />
       )}
@@ -265,90 +272,162 @@ export function WelcomeScreen({ onProjectSet }: WelcomeScreenProps) {
         <ImportZipDialog onConfirm={handleImportZipConfirm} onCancel={() => setShowImportZipDialog(false)} />
       )}
 
-      {/* Left sidebar */}
-      <div style={{ width: '300px', flexShrink: 0, backgroundColor: 'var(--header-dark)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
-        <div style={{ width: '56px', height: '56px', borderRadius: '16px', backgroundColor: 'var(--underleaf-green)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', boxShadow: '0 8px 24px rgba(79,156,69,0.35)' }}>
-          <svg width="30" height="30" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
+      {/* ── Frameless title bar ──────────────────────────────────────────── */}
+      <div style={{
+        height: '40px', flexShrink: 0,
+        background: 'var(--header-darker)',
+        display: 'flex', alignItems: 'center',
+        WebkitAppRegion: 'drag' as any,
+        userSelect: 'none',
+        position: 'relative', zIndex: 100,
+      }}>
+        {/* Logo + brand — non-draggable */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          padding: '0 16px',
+          WebkitAppRegion: 'no-drag' as any,
+        }}>
+          <img src={Logo} alt="Underleaf" style={{ width: '18px', height: '18px' }} />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.04em' }}>
+            underleaf
+          </span>
         </div>
-        <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#ffffff', marginBottom: '6px', letterSpacing: '-0.02em' }}>Underleaf</h1>
-        <p style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', lineHeight: 1.6, marginBottom: '36px' }}>Professional LaTeX IDE with live preview and smart compilation</p>
 
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button onClick={() => setShowCreateDialog(true)} disabled={isLoading} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '11px 16px', backgroundColor: 'var(--underleaf-green)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', gap: '10px', transition: 'filter 0.2s', fontFamily: 'inherit' }}
-            onMouseOver={e => (e.currentTarget as HTMLElement).style.filter = 'brightness(1.1)'}
-            onMouseOut={e => (e.currentTarget as HTMLElement).style.filter = 'none'}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
-            New Project
+        {/* Spacer — draggable */}
+        <div style={{ flex: 1 }} />
+
+        {/* Window controls — non-draggable */}
+        <div style={{ display: 'flex', alignItems: 'stretch', height: '40px', WebkitAppRegion: 'no-drag' as any }}>
+          <button onClick={handleWinMinimise} title="Minimise" style={winBtnStyle('#0f172a')}>
+            <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
           </button>
-
-          <button onClick={handleOpenExisting} disabled={isLoading} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '11px 16px', backgroundColor: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', gap: '10px', transition: '0.2s', fontFamily: 'inherit' }}
-            onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
-            onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#cbd5e1'; }}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-            Open Folder
+          <button onClick={handleWinMaximise} title="Maximise" style={winBtnStyle('#0f172a')}>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x=".5" y=".5" width="9" height="9" stroke="currentColor"/></svg>
           </button>
-
-          <button onClick={() => setShowImportZipDialog(true)} disabled={isLoading} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '11px 16px', backgroundColor: 'rgba(217,119,6,0.15)', color: '#fbbf24', border: '1.5px solid rgba(251,191,36,0.25)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', gap: '10px', transition: '0.2s', fontFamily: 'inherit' }}
-            onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(217,119,6,0.25)'; (e.currentTarget as HTMLElement).style.color = '#fde68a'; }}
-            onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(217,119,6,0.15)'; (e.currentTarget as HTMLElement).style.color = '#fbbf24'; }}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-            Open from ZIP
+          <button
+            onClick={handleWinClose}
+            title="Close"
+            style={winBtnStyle('#0f172a')}
+            onMouseOver={e => (e.currentTarget as HTMLElement).style.background = '#e81123'}
+            onMouseOut={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5"/>
+              <line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
           </button>
         </div>
       </div>
 
-      {/* Right: project list */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '48px 56px', overflowY: 'auto' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>Recent Projects</h2>
-        <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Click a project to open it in the editor.</p>
+      {/* ── Main content ─────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {errorMsg && (
-          <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '12px', borderRadius: '8px' }}>
-            {errorMsg}
+        {/* Left sidebar */}
+        <div style={{ width: '300px', flexShrink: 0, backgroundColor: 'var(--header-dark)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
+          {/* Logo */}
+          <div style={{ marginBottom: '20px', position: 'relative' }}>
+            <div style={{
+              width: '72px', height: '72px',
+              borderRadius: '20px',
+              background: 'rgba(79,156,69,0.12)',
+              border: '1.5px solid rgba(79,156,69,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 32px rgba(79,156,69,0.2)',
+            }}>
+              <img src={Logo} alt="Underleaf" style={{ width: '48px', height: '48px' }} />
+            </div>
           </div>
-        )}
 
-        {projects.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '12px' }}>
-            <svg width="56" height="56" fill="none" stroke="currentColor" strokeWidth="1.25" viewBox="0 0 24 24" style={{ opacity: 0.4 }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-            </svg>
-            <p style={{ fontSize: '14px', fontWeight: 600 }}>No projects yet</p>
-            <p style={{ fontSize: '12px', color: '#cbd5e1', textAlign: 'center', maxWidth: '260px', lineHeight: 1.6 }}>Create a new project or open an existing folder to get started.</p>
+          <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#ffffff', marginBottom: '6px', letterSpacing: '-0.02em' }}>Underleaf</h1>
+          <p style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', lineHeight: 1.6, marginBottom: '36px' }}>
+            Professional LaTeX IDE with live preview and smart compilation
+          </p>
+
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button onClick={() => setShowCreateDialog(true)} disabled={isLoading} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '11px 16px', backgroundColor: 'var(--underleaf-green)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', gap: '10px', transition: 'filter 0.2s', fontFamily: 'inherit' }}
+              onMouseOver={e => (e.currentTarget as HTMLElement).style.filter = 'brightness(1.1)'}
+              onMouseOut={e => (e.currentTarget as HTMLElement).style.filter = 'none'}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+              New Project
+            </button>
+
+            <button onClick={handleOpenExisting} disabled={isLoading} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '11px 16px', backgroundColor: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', gap: '10px', transition: '0.2s', fontFamily: 'inherit' }}
+              onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
+              onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#cbd5e1'; }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+              Open Folder
+            </button>
+
+            <button onClick={() => setShowImportZipDialog(true)} disabled={isLoading} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '11px 16px', backgroundColor: 'rgba(217,119,6,0.15)', color: '#fbbf24', border: '1.5px solid rgba(251,191,36,0.25)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', gap: '10px', transition: '0.2s', fontFamily: 'inherit' }}
+              onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(217,119,6,0.25)'; (e.currentTarget as HTMLElement).style.color = '#fde68a'; }}
+              onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(217,119,6,0.15)'; (e.currentTarget as HTMLElement).style.color = '#fbbf24'; }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+              Open from ZIP
+            </button>
           </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', maxWidth: '680px' }}>
-            {projects.map((proj, idx) => (
-              <button key={idx} onClick={() => openProject(proj.path)} disabled={isLoading}
-                style={{ textAlign: 'left', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', fontFamily: 'inherit' }}
-                onMouseOver={e => { (e.currentTarget as HTMLElement).style.border = '1.5px solid #4f9c45'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(79,156,69,0.12)'; }}
-                onMouseOut={e => { (e.currentTarget as HTMLElement).style.border = '1.5px solid #e2e8f0'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}>
-                <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                  <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(79,156,69,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '14px', flexShrink: 0 }}>
-                    <svg width="18" height="18" fill="none" stroke="var(--underleaf-green)" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
+        </div>
+
+        {/* Right: project list */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '48px 56px', overflowY: 'auto' }}>
+          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>Recent Projects</h2>
+          <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Click a project to open it in the editor.</p>
+
+          {errorMsg && (
+            <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '12px', borderRadius: '8px' }}>
+              {errorMsg}
+            </div>
+          )}
+
+          {projects.length === 0 ? (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '12px' }}>
+              <svg width="56" height="56" fill="none" stroke="currentColor" strokeWidth="1.25" viewBox="0 0 24 24" style={{ opacity: 0.4 }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+              </svg>
+              <p style={{ fontSize: '14px', fontWeight: 600 }}>No projects yet</p>
+              <p style={{ fontSize: '12px', color: '#cbd5e1', textAlign: 'center', maxWidth: '260px', lineHeight: 1.6 }}>Create a new project or open an existing folder to get started.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', maxWidth: '680px' }}>
+              {projects.map((proj, idx) => (
+                <button key={idx} onClick={() => openProject(proj.path)} disabled={isLoading}
+                  style={{ textAlign: 'left', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', fontFamily: 'inherit' }}
+                  onMouseOver={e => { (e.currentTarget as HTMLElement).style.border = '1.5px solid #4f9c45'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(79,156,69,0.12)'; }}
+                  onMouseOut={e => { (e.currentTarget as HTMLElement).style.border = '1.5px solid #e2e8f0'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}>
+                  <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(79,156,69,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '14px', flexShrink: 0 }}>
+                      <svg width="18" height="18" fill="none" stroke="var(--underleaf-green)" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{proj.name}</p>
+                      <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.path}</p>
+                    </div>
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{proj.name}</p>
-                    <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.path}</p>
-                  </div>
-                </div>
-                <button onClick={(e) => handleDelete(e, proj.path)}
-                  style={{ marginLeft: '12px', padding: '6px', borderRadius: '6px', color: '#cbd5e1', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, transition: '0.2s', opacity: 0, display: 'flex' }}
-                  onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.background = '#fef2f2'; (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-                  onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = '#cbd5e1'; (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.opacity = '0'; }}
-                  title="Remove from list"
-                >
-                  <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  <button onClick={(e) => handleDelete(e, proj.path)}
+                    style={{ marginLeft: '12px', padding: '6px', borderRadius: '6px', color: '#cbd5e1', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, transition: '0.2s', opacity: 0, display: 'flex' }}
+                    onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.background = '#fef2f2'; (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = '#cbd5e1'; (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.opacity = '0'; }}
+                    title="Remove from list"
+                  >
+                    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
                 </button>
-              </button>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+const winBtnStyle = (bg: string): React.CSSProperties => ({
+  width: '46px', height: '40px',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: 'transparent', border: 'none',
+  color: '#64748b', cursor: 'pointer',
+  transition: 'background 0.15s, color 0.15s',
+  flexShrink: 0,
+});
