@@ -82,7 +82,7 @@
 nav {
   height: 60px;
   background: var(--header-dark);
-  padding: 0 20px;
+  padding: 0 0 0 20px; /* no right padding — win-controls flush to edge */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -91,7 +91,48 @@ nav {
   position: relative;
   z-index: 50;
   flex-shrink: 0;
+  /* Entire nav is the window drag handle in frameless mode */
+  -webkit-app-region: drag;
+  user-select: none;
 }
+
+/* Interactive elements must opt out of dragging */
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* ─── Window Controls (frameless mode) ─────────────────── */
+.win-controls {
+  display: flex;
+  align-items: stretch;
+  height: 60px;
+  margin-left: 12px;
+}
+
+.win-btn {
+  width: 46px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.win-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.win-btn-close:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
 
 .nav-left {
   display: flex;

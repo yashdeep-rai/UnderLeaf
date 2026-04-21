@@ -12,6 +12,7 @@ import Logo from './logo.svg?url';
 import { ReadFile, SaveFile, ImportFile, ImportZip } from '../bindings/Underleaf/backend/project/service.js';
 import { GetSnapshotData } from '../bindings/Underleaf/backend/project/snapshotservice.js';
 import { ClearCache } from '../bindings/Underleaf/backend/engine/compilerservice.js';
+import * as WailsRuntime from '@wailsio/runtime';
 
 export default function App() {
   const [activeFilePath, setActiveFilePath] = useState<string>("");
@@ -35,6 +36,8 @@ export default function App() {
 
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [previewWidth, setPreviewWidth] = useState(window.innerWidth * 0.4);
+  // Shield prevents PDF canvas from swallowing mouse events while resizing
+  const [isResizing, setIsResizing] = useState(false);
 
   const sidebarResizerRef = useRef<boolean>(false);
   const previewResizerRef = useRef<boolean>(false);
@@ -49,26 +52,40 @@ export default function App() {
     return () => window.removeEventListener('click', handler);
   }, [showSettings]);
 
-  // Handle resizing
+  // Window control helpers (frameless mode)
+  const wailsWin = (WailsRuntime as any).Window;
+  const handleWinMinimise  = () => wailsWin?.Minimise?.();
+  const handleWinMaximise  = () => wailsWin?.ToggleMaximise?.();
+  const handleWinClose     = () => wailsWin?.Close?.();
+
+  // Handle resizing — shield prevents PDF canvas from capturing mouse events
+  const startResize = (which: 'sidebar' | 'preview') => {
+    if (which === 'sidebar') sidebarResizerRef.current = true;
+    else previewResizerRef.current = true;
+    setIsResizing(true);
+  };
+  const stopResize = () => {
+    sidebarResizerRef.current = false;
+    previewResizerRef.current = false;
+    setIsResizing(false);
+  };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (sidebarResizerRef.current) {
-        let w = e.clientX;
-        if (w > 180 && w < 450) setSidebarWidth(w);
+        const w = e.clientX;
+        if (w > 180 && w < 480) setSidebarWidth(w);
       } else if (previewResizerRef.current) {
-        let w = window.innerWidth - e.clientX;
-        if (w > 250 && w < (window.innerWidth * 0.7)) setPreviewWidth(w);
+        const w = window.innerWidth - e.clientX;
+        // min 280px, max 75% of window
+        if (w > 280 && w < window.innerWidth * 0.75) setPreviewWidth(w);
       }
     };
-    const handleMouseUp = () => {
-      sidebarResizerRef.current = false;
-      previewResizerRef.current = false;
-    };
     document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseup', stopResize);
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseup', stopResize);
     };
   }, []);
 
@@ -212,10 +229,12 @@ export default function App() {
   return (
     <>
       <EditorContextMenu />
-      <nav>
-          <div className="nav-left">
+
+      {/* Frameless nav — acts as the title bar drag handle */}
+      <nav className="titlebar-drag">
+          <div className="nav-left titlebar-no-drag">
               <div className="logo">
-                <img src={Logo} alt="Underleaf logo" style={{ width: '22px', height: '22px', flexShrink: 0 }} />
+                <img src={Logo} alt="Underleaf logo" style={{ width: '20px', height: '20px', flexShrink: 0 }} />
                 underleaf
               </div>
               {projectName && (
@@ -229,9 +248,13 @@ export default function App() {
                 </span>
               )}
           </div>
-          <div className="nav-right">
+
+          {/* Centre spacer — draggable */}
+          <div style={{ flex: 1 }} />
+
+          <div className="nav-right titlebar-no-drag">
               <div className="relative">
-                  <button 
+                  <button
                       onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); }}
                       className="nav-btn"
                       data-tooltip="Settings & Repair"
@@ -244,7 +267,7 @@ export default function App() {
                         width: '200px', background: 'white', border: '1px solid #e2e8f0',
                         borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', zIndex: 9000, padding: '4px'
                       }}>
-                          <button 
+                          <button
                             onClick={handleRepair}
                             disabled={isRepairing}
                             style={{
@@ -265,6 +288,19 @@ export default function App() {
               <button onClick={manualCompile} disabled={isCompiling || !activeFilePath} className="nav-btn nav-btn-primary disabled:opacity-50" data-tooltip="Generate PDF (Ctrl+Enter)">
                   {isCompiling ? 'COMPILING...' : 'COMPILE'}
               </button>
+          </div>
+
+          {/* Window controls — only needed in frameless mode on Windows */}
+          <div className="win-controls titlebar-no-drag">
+            <button className="win-btn win-btn-min" onClick={handleWinMinimise} title="Minimise">
+              <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+            </button>
+            <button className="win-btn win-btn-max" onClick={handleWinMaximise} title="Maximise">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x=".5" y=".5" width="9" height="9" stroke="currentColor"/></svg>
+            </button>
+            <button className="win-btn win-btn-close" onClick={handleWinClose} title="Close">
+              <svg width="10" height="10" viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5"/><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" strokeWidth="1.5"/></svg>
+            </button>
           </div>
       </nav>
 
@@ -290,7 +326,7 @@ export default function App() {
           />
         </aside>
 
-        <div className="resizer" id="resizer-1" onMouseDown={() => sidebarResizerRef.current = true}></div>
+        <div className="resizer" id="resizer-1" onMouseDown={() => startResize('sidebar')}></div>
 
         {/* Middle Pane: Editor */}
         <section className="card" id="editor-panel">
@@ -326,7 +362,7 @@ export default function App() {
             </div>
         </section>
 
-        <div className="resizer" id="resizer-2" onMouseDown={() => previewResizerRef.current = true}></div>
+        <div className="resizer" id="resizer-2" onMouseDown={() => startResize('preview')}></div>
 
         {/* Right Pane: Viewer */}
         <section className="card relative" id="preview-panel" style={{ width: previewWidth }}>
@@ -493,6 +529,26 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Resize shield — blocks PDF canvas from eating mouse events while dragging */}
+      {isResizing && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998,
+            cursor: 'col-resize', userSelect: 'none',
+          }}
+          onMouseUp={stopResize}
+          onMouseMove={(e) => {
+            if (sidebarResizerRef.current) {
+              const w = e.clientX;
+              if (w > 180 && w < 480) setSidebarWidth(w);
+            } else if (previewResizerRef.current) {
+              const w = window.innerWidth - e.clientX;
+              if (w > 280 && w < window.innerWidth * 0.75) setPreviewWidth(w);
+            }
+          }}
+        />
+      )}
       <footer>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
