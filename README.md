@@ -54,7 +54,7 @@ It combines a full-featured code editor with PDF.js preview, KaTeX inline math r
 - Underleaf detects table environments and offers a **Notion-style spreadsheet overlay** — click cells, add columns, drag to resize
 - The spreadsheet auto-translates back into perfectly aligned raw LaTeX
 
-### 🤖 AI Orchestrator (Log-Physician)
+### 🤖 AI Orchestrator (🚧 Under Development )
 - Multi-provider health monitor for local LLM servers (Ollama, LM Studio, etc.)
 - Automatically routes requests to the healthiest available model
 - Falls back gracefully when no AI is available — the editor is fully usable without it
