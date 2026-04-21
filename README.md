@@ -171,7 +171,7 @@ Please open an issue first for significant changes so we can discuss the approac
 
 ## 📄 License
 
-MIT © Yashdeep Rai
+Apache 2.0 © Yashdeep Rai
 
 ---
 
